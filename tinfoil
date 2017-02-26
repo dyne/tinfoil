@@ -1,0 +1,243 @@
+#!/usr/bin/env zsh
+#
+# Tinfoil
+#
+# A tool to manage multiple profiles for web browsers
+#
+# {{{ License
+#
+# Copyright (C) 2017 Dyne.org Foundation
+#
+# Tinfoil is designed, written and maintained by Denis Roio <jaromil@dyne.org>
+#
+# This source code is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This source code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  Please refer
+# to the GNU Public License for more details.
+#
+# You should have received a copy of the GNU Public License along with
+# this source code; if not, write to: Free Software Foundation, Inc.,
+# 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# }}} - License
+
+# resources in order of priority
+# this is where tinfoil looks for template/ and firejail/ dirs
+homedir=$HOME/.tinfoil
+confdir=/etc/tinfoil
+# this is changed to $PREFIX/share/tinfoil by make install
+basedir=.
+
+source $basedir/zuper/zuper
+
+vars+=(profiledir homedir confdir basedir)
+vars+=(templatedir create_profile)
+maps+=(browser vendor profilename)
+arrs+=(browser_opts)
+
+source $basedir/zuper/zuper.init
+
+# this can be changed, for instance to move templates in a tomb
+profiledir=${TINFOIL_HOME:-$homedir/profiles}
+
+vendor=(firefox     "$HOME/.mozilla/firefox"
+		firefox-esr "$HOME/.mozilla/firefox"
+		icecat      "$HOME/.mozilla/icecat"
+		palemoon    "$HOME/.moonchild productions/pale moon")
+
+notice "Tinfoil v0.2"
+
+function launch-mozilla() {
+	fn launch-mozilla $*
+	local app="$1"
+	local profilepath="$2"
+	local vendordir=$vendor[$app]
+	req=(app profilepath vendordir)
+	ckreq || return $?
+
+	act "launching    : $1"
+	act "profile path : $profilepath"
+	func "temporary ini: ${vendordir}/profiles.ini"
+	mkdir -p    "$vendordir"
+	cat <<EOF > "$vendordir"/profiles.ini
+[General]
+StartWithLastProfile=0
+[Profile0]
+Name=${app}
+IsRelative=0
+Path=${profilepath}
+EOF
+
+	### TODO: EXTENSION INJECTION IS NOT YET WELL IMPLEMENTED
+	# make sure all extensions are equipped by the profile
+	# mkdir -p "$profilepath"/extensions
+	# cp $basedir/titlebar/titlebar-v1@dyne.org.xpi \
+	#    "$profilepath"/extensions/titlebar-v1@dyne.org.xpi
+	# cp $basedir/passff/bin/passff.xpi "$2"/extensions/passff-v1@dyne.org.xpi
+
+	# [[ -r "$templatedir/extensions" ]] && {
+	# 	for x in ${(f)"$(find $templatedir/extensions -name '*.xpi')"}; do
+	# 		n=`basename $x`
+	# 		[[ -r "$templatedir"/extensions/"$n" ]] || {
+	# 			act "$n: equipping missing extension"
+	# 			mkdir -p "$profilepath"/extensions/
+	# 			cp "$x"  "$profilepath"/extensions/
+	# 		}
+	# 	done
+	# }
+
+	(sleep 5; rm "$vendordir"/profiles.ini) &
+	### TODO: FIREJAIL SUPPORT
+    #   firejail --profile="${firejail}"
+	"$browser" ${=browser_opts}
+}
+
+
+function help_usage() {
+	fn help_usage $*
+	act "Usage: tinfoil browser profile_name"
+}
+
+
+## TODO: fix this using pidof and locking inside dirs
+function browser_is_running() {
+	fn browser_is_running
+	req=(browser)
+	ckreq || return $?
+
+	local brgrep="[${browser[1]}]`print $browser | cut -c2-`"
+	func "checking ps ax for '$brgrep'"
+
+	ps ax | grep "$brgrep" > /dev/null
+	[[ $? = 0 ]] && {
+		act "$browser found already running, using -no-remote"
+		browser_opts+=(-no-remote)		
+	}
+}
+
+function template_find() {
+	fn template_find $*
+	req=(browser profile)
+	ckreq || return $?
+
+	local here=`pwd`
+	[[ -r "${here}/templates/${browser}.${profile}" ]] && {
+		templatedir="${here}/templates/${browser}.${profile}"
+		return 0 }
+	[[ -r "${homedir}/templates/${browser}.${profile}" ]] && {
+		templatedir="${homedir}/templates/${browser}.${profile}"
+		return 0 }
+	[[ -r "${confdir}/templates/${browser}.${profile}" ]] && {
+		templatedir="${confdir}/templates/${browser}.${profile}"
+		return 0 }
+	[[ -r "${basedir}/templates/${browser}.${profile}" ]] && {
+		templatedir="${basedir}/templates/${browser}.${profile}"
+		return 0 }
+
+	[[ -r "${here}/templates/${browser}" ]] && {
+		templatedir="${here}/templates/${browser}"
+		return 0 }
+	[[ -r "${homedir}/templates/${browser}" ]] && {
+		templatedir="${homedir}/templates/${browser}"
+		return 0 }
+	[[ -r "${confdir}/templates/${browser}" ]] && {
+		templatedir="${confdir}/templates/${browser}"
+		return 0 }
+	[[ -r "${basedir}/templates/${browser}" ]] && {
+		templatedir="${basedir}/templates/${browser}"
+		return 0 }
+}
+
+function prefs_find() {
+	[[ -r "${templatedir}/prefs.js" ]] && {
+		prefsjs="${templatedir}/prefs.js"
+		return 0 }
+	[[ -r "${basedir}/prefs.js" ]] && {
+		prefsjs="${basedir}/prefs.js"
+		return 0 }
+}
+
+[[ "$1" = "" ]] && help_usage && return 0
+
+create_profile=0
+[[ "new" =~ "$1" ]] && {
+	create_profile=1
+	shift
+}
+
+browser="$1"
+shift
+        
+# support symlinks to script with tinfoil-profilename
+if [[ "$0" =~ "tinfoil-" ]]; then
+	profile=`basename $0`
+	profile=${profile[(ws:-:)2]}
+else
+	profile="${1}"
+	shift
+fi
+
+browser_opts=($*)
+
+# browser_is_running $browser
+
+template_find
+[[ "$templatedir" = "" ]] && {
+	error "templates not found in paths: $basedir $homedir $confdir"
+	return 1 }
+
+prefs_find
+[[ "$prefsjs" = "" ]] && {
+	error "prefs.js not found in template $templatedir"
+	return 1 }
+
+act "$templatedir template found"
+act "$prefsjs preferences found"
+
+[[ "anon" =~ "$profile" ]] && {
+	notice "Anonymous profile"
+	# special case, anonymous browsing
+	tmp=`mktemp -d`
+	cp -ra "$templatedir" "$tmp"/"$browser"
+	cp -ra "$prefsjs" "$tmp"/"$browser"/prefs.js
+	cat <<EOF >>      "$tmp"/"$browser"/prefs.js
+user_pref("browser.privatebrowsing.autostart", true);
+EOF
+	[[ "$DEBUG" = "" ]] || tree "$tmp"/"$browser"
+
+	launch-mozilla "$browser" "$tmp"/"$browser"
+	rm -rf "$tmp"
+	return 0
+}
+
+## TODO: tor profile to detect tor on local or remote
+
+# create a new profile
+[[ $create_profile = 1 ]] && {
+	[[ -d "$profiledir"/"$browser"."$profile" ]] && {
+		error "profile already exists: ${profiledir}/${browser}.${profile}"
+		return 1 }
+	mkdir -p              "${profiledir}/${browser}.${profile}"
+	cp -ra $templatedir/* "${profiledir}/${browser}.${profile}"
+	act "new profile created: ${profiledir}/${browser}.${profile}"
+	act "launch with: tinfoil ${browser} ${profile}"
+	return 0
+}
+
+[[ -d "${profiledir}/${browser}.${profile}" ]] || {
+	error "profile not found: ${profiledir}/${browser}.${profile}"
+	error "to create a new one use: tinfoil new ${browser} ${profile}"
+	[[ -r "$profiledir" ]] && {
+		act "list of available profiles:"
+		find $profiledir  -maxdepth 1
+	}
+	return 1
+}
+
+launch-mozilla $browser "${profiledir}/${browser}.${profile}"
+return $?
