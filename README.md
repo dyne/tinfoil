@@ -1,10 +1,15 @@
 # Tinfoil
 
+<img src="http://zapatopi.net/afdb/lizhurley.jpg"
+	alt="Tinfoil logo featuring Liz Hurley, courtesy of Zapatopi"
+	title="Tinfoil logo featuring Liz Hurley, courtesy of Zapatopi"
+		style="float: right">
+
 *A minimalist tool to manage multiple profiles for web browsers* aka **The no-nonsense web wrapper**
 
 [![software by Dyne.org](https://www.dyne.org/wp-content/uploads/2015/12/software_by_dyne.png)](http://www.dyne.org)
 
-# How does it work?
+## How does it work?
 
 Install tinfoil on your system (needs root, PREFIX defaults to `/usr/local/share/tinfoil`)
 ```
@@ -26,11 +31,13 @@ Start an anonymous `icecat` browser instance using a temporary profile which wil
  $ tinfoil icecat anon
 ```
 
-# Stage of development
+## Stage of development
 
 Tinfoil is work in progress! if you are interested in giving a hand, tinfoil's developers can be contacted using the issues on GitHub or over IRC on https://irc.dyne.org channel **#dyne** (or direct port 9999 SSL)
 
-# Licensing
+Tinfoil is the browser wrapper of choice for the heads GNU+Linux distribution: https://heads.dyne.org
+
+## Licensing
 
 Tinfoil is Copyright (C) 2017 by the Dyne.org Foundation
 

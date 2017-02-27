@@ -35,32 +35,53 @@ basedir=.
 
 source $basedir/zuper/zuper
 
+# globals
 vars+=(profiledir homedir confdir basedir)
-vars+=(templatedir create_profile)
-maps+=(browser vendor profilename)
+vars+=(templatedir create_profile prefs profilepath)
+maps+=(browser browsertype vendor profilename)
 arrs+=(browser_opts)
 
 source $basedir/zuper/zuper.init
 
-# this can be changed, for instance to move templates in a tomb
-profiledir=${TINFOIL_HOME:-$homedir/profiles}
+function launch-chrome() {
+	fn launch-chrome $*
+    profilepath="${profiledir}/${browser}.${profile}"
+	req=(browser profile)
+	freq=($profilepath)
+	ckreq || return $?
 
-vendor=(firefox     "$HOME/.mozilla/firefox"
-		firefox-esr "$HOME/.mozilla/firefox"
-		icecat      "$HOME/.mozilla/icecat"
-		palemoon    "$HOME/.moonchild productions/pale moon")
+	act "launching     : $browser"
+	act "profile path  : $profilepath"
 
-notice "Tinfoil v0.2"
+	$app --user-data-dir="$profilepath" ${=browser_opts} $*
+}
 
 function launch-mozilla() {
 	fn launch-mozilla $*
-	local app="$1"
-	local profilepath="$2"
-	local vendordir=$vendor[$app]
-	req=(app profilepath vendordir)
+	func "browser: $browser"
+	func "profile: $profile"
+    profilepath="${profiledir}/${browser}.${profile}"
+	local vendordir=$vendor[$browser]
+	req=(browser profile vendordir)
+	[[ $profile =~ anon ]] || {
+		notice "Anonymous profile"
+		# special case, anonymous browsing
+		ztmp
+		rm -f "$ztmpfile"
+		mkdir "$ztmpfile"
+		local tmp="$ztmpfile"
+		cp -ra "$templatedir" "$tmp"/"$browser"
+		cp -a  "$prefs" "$tmp"/"$browser"/prefs.js
+		cat <<EOF >>    "$tmp"/"$browser"/prefs.js
+user_pref("browser.privatebrowsing.autostart", true);
+EOF
+		profilepath="$tmp"/"$browser"
+	}
+	freq=("$profilepath")
 	ckreq || return $?
 
-	act "launching    : $1"
+
+	act "launching    : ${browser}.${profile}"
 	act "profile path : $profilepath"
 	func "temporary ini: ${vendordir}/profiles.ini"
 	mkdir -p    "$vendordir"
@@ -68,10 +89,13 @@ function launch-mozilla() {
 [General]
 StartWithLastProfile=0
 [Profile0]
-Name=${app}
+Name=${browser}
 IsRelative=0
 Path=${profilepath}
 EOF
+
+	# inject preferences
+	cat "$prefs" >> "$profilepath"/prefs.js
 
 	### TODO: EXTENSION INJECTION IS NOT YET WELL IMPLEMENTED
 	# make sure all extensions are equipped by the profile
@@ -94,7 +118,7 @@ EOF
 	(sleep 5; rm "$vendordir"/profiles.ini) &
 	### TODO: FIREJAIL SUPPORT
     #   firejail --profile="${firejail}"
-	"$browser" ${=browser_opts}
+	$browser ${=browser_opts}
 }
 
 
@@ -128,50 +152,97 @@ function template_find() {
 	local here=`pwd`
 	[[ -r "${here}/templates/${browser}.${profile}" ]] && {
 		templatedir="${here}/templates/${browser}.${profile}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${homedir}/templates/${browser}.${profile}" ]] && {
 		templatedir="${homedir}/templates/${browser}.${profile}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${confdir}/templates/${browser}.${profile}" ]] && {
 		templatedir="${confdir}/templates/${browser}.${profile}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${basedir}/templates/${browser}.${profile}" ]] && {
 		templatedir="${basedir}/templates/${browser}.${profile}"
-		return 0 }
+		return 0
+	}
 
 	[[ -r "${here}/templates/${browser}" ]] && {
 		templatedir="${here}/templates/${browser}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${homedir}/templates/${browser}" ]] && {
 		templatedir="${homedir}/templates/${browser}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${confdir}/templates/${browser}" ]] && {
 		templatedir="${confdir}/templates/${browser}"
-		return 0 }
+		return 0
+	}
 	[[ -r "${basedir}/templates/${browser}" ]] && {
 		templatedir="${basedir}/templates/${browser}"
-		return 0 }
+		return 0
+	}
+
+	[[ -r "${here}/templates/${browsertype}" ]] && {
+		templatedir="${here}/templates/${browsertype}"
+		return 0
+	}
+	[[ -r "${homedir}/templates/${browsertype}" ]] && {
+		templatedir="${homedir}/templates/${browsertype}"
+		return 0
+	}
+	[[ -r "${confdir}/templates/${browsertype}" ]] && {
+		templatedir="${confdir}/templates/${browsertype}"
+		return 0
+	}
+	[[ -r "${basedir}/templates/${browsertype}" ]] && {
+		templatedir="${basedir}/templates/${browsertype}"
+		return 0
+	}
+
+	[[ "$templatedir" = "" ]] && return 1
+
 }
 
 function prefs_find() {
-	[[ -r "${templatedir}/prefs.js" ]] && {
-		prefsjs="${templatedir}/prefs.js"
-		return 0 }
-	[[ -r "${basedir}/prefs.js" ]] && {
-		prefsjs="${basedir}/prefs.js"
-		return 0 }
+	fn prefs_find $*
+	req=(browsertype)
+	ckreq || return $?
+
+	case $browsertype in
+		mozilla)
+			[[ -r "${templatedir}/prefs.js" ]] && {
+				prefs="${templatedir}/prefs.js"
+				return 0
+			}
+			[[ -r "${basedir}/templates/mozilla-prefs.js" ]] && {
+				prefs="${basedir}/templates/mozilla-prefs.js"
+				return 0
+			}
+			[[ "$prefs" = "" ]] && return 1
+
+			;;
+		chrome)
+			# TODO: chromium default preferences
+			;;
+	esac
+
+	[[ "$prefs" = "" ]] && return 1
+
 }
 
-[[ "$1" = "" ]] && help_usage && return 0
+[[ "$1" = "" ]]      && help_usage && return 0
+[[ " -h " =~ "$*" ]] && help_usage && return 0
 
 create_profile=0
 [[ "new" =~ "$1" ]] && {
 	create_profile=1
-	shift
+	shift 1
 }
 
 browser="$1"
-shift
+shift 1
         
 # support symlinks to script with tinfoil-profilename
 if [[ "$0" =~ "tinfoil-" ]]; then
@@ -179,41 +250,46 @@ if [[ "$0" =~ "tinfoil-" ]]; then
 	profile=${profile[(ws:-:)2]}
 else
 	profile="${1}"
-	shift
+	shift 1
 fi
 
 browser_opts=($*)
 
+# this can be changed, for instance to move templates in a tomb
+profiledir=${TINFOIL_HOME:-$homedir/profiles}
+
+vendor=(firefox     "$HOME/.mozilla/firefox"
+		firefox-esr "$HOME/.mozilla/firefox"
+		icecat      "$HOME/.mozilla/icecat"
+		palemoon    "$HOME/.moonchild productions/pale moon")
+
+case $browser in
+	chrom*)   browsertype=chrome  ;;
+	firefox*) browsertype=mozilla ;;
+	icecat)   browsertype=mozilla ;;
+	palemoon) browsertype=mozilla ;;
+	*) error "$browser : browser not known to tinfoil"
+	   act "help us add support by opening an issue on: https://github.com/dyne/tinfoil/issues"
+	   ;;
+esac
+
+notice "Tinfoil v0.3"
+
 # browser_is_running $browser
 
-template_find
-[[ "$templatedir" = "" ]] && {
+template_find || {
 	error "templates not found in paths: $basedir $homedir $confdir"
-	return 1 }
+	return 1
+}
 
-prefs_find
-[[ "$prefsjs" = "" ]] && {
-	error "prefs.js not found in template $templatedir"
-	return 1 }
+prefs_find || {
+	error "preferences for $browser ($browsertype) not found in $templatedir"
+	return 1
+}
 
 act "$templatedir template found"
-act "$prefsjs preferences found"
+act "$prefs preferences found"
 
-[[ "anon" =~ "$profile" ]] && {
-	notice "Anonymous profile"
-	# special case, anonymous browsing
-	tmp=`mktemp -d`
-	cp -ra "$templatedir" "$tmp"/"$browser"
-	cp -ra "$prefsjs" "$tmp"/"$browser"/prefs.js
-	cat <<EOF >>      "$tmp"/"$browser"/prefs.js
-user_pref("browser.privatebrowsing.autostart", true);
-EOF
-	[[ "$DEBUG" = "" ]] || tree "$tmp"/"$browser"
-
-	launch-mozilla "$browser" "$tmp"/"$browser"
-	rm -rf "$tmp"
-	return 0
-}
 
 ## TODO: tor profile to detect tor on local or remote
 
@@ -221,7 +297,8 @@ EOF
 [[ $create_profile = 1 ]] && {
 	[[ -d "$profiledir"/"$browser"."$profile" ]] && {
 		error "profile already exists: ${profiledir}/${browser}.${profile}"
-		return 1 }
+		return 1
+	}
 	mkdir -p              "${profiledir}/${browser}.${profile}"
 	cp -ra $templatedir/* "${profiledir}/${browser}.${profile}"
 	act "new profile created: ${profiledir}/${browser}.${profile}"
@@ -229,15 +306,19 @@ EOF
 	return 0
 }
 
-[[ -d "${profiledir}/${browser}.${profile}" ]] || {
-	error "profile not found: ${profiledir}/${browser}.${profile}"
-	error "to create a new one use: tinfoil new ${browser} ${profile}"
-	[[ -r "$profiledir" ]] && {
-		act "list of available profiles:"
-		find $profiledir  -maxdepth 1
+[[ $profile =~ anon ]] || {
+
+	[[ -d "${profiledir}/${browser}.${profile}" ]] || {
+		error "profile not found: ${profiledir}/${browser}.${profile}"
+		error "to create a new one use: tinfoil new ${browser} ${profile}"
+		[[ -r "$profiledir" ]] && {
+			act "list of available profiles:"
+			find $profiledir  -maxdepth 1
+		}
+		return 1
 	}
-	return 1
+
 }
 
-launch-mozilla $browser "${profiledir}/${browser}.${profile}"
+launch-$browsertype
 return $?

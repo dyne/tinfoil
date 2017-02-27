@@ -20,3 +20,9 @@ install:
 	@sed "s/^basedir=./basedir=$(ESCPREFIX)\/share\/tinfoil/g" \
 		 tinfoil > $(PREFIX)/bin/tinfoil
 	@chmod +x      $(PREFIX)/bin/tinfoil
+	@echo "Default configuration in /etc/tinfoil"
+	@mkdir -p /etc/tinfoil
+	@install -m 0644 -b -C templates/mozilla-prefs.js /etc/tinfoil
+
+lint:
+	shellcheck --exclude=SC1083 tinfoil
