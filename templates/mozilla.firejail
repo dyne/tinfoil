@@ -1,13 +1,12 @@
 # Tinfoil's Firejail profile for Mozilla based browsers
 
 include /etc/firejail/disable-common.inc
+include /etc/firejail/disable-programs.inc
 include /etc/firejail/disable-devel.inc
-include /etc/firejail/whitelist-common.inc
-# include /etc/firejail/disable-programs.inc
 
-whitelist ~/Downloads
-whitelist ~/.config
-whitelist ~/.pki
+read-write  ~/Downloads
+read-write  ~/.pki
+read-only   ~/.config/pango/pangorc
 
 caps.drop all
 netfilter
@@ -19,4 +18,8 @@ seccomp
 shell none
 
 # to fix the dbus dialog
-private-bin dbus-launch,atril
+read-only /usr/bin/dbus-launch
+# open pdf files
+read-only /usr/bin/atril
+
+include /etc/firejail/whitelist-common.inc

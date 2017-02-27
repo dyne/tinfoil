@@ -42,11 +42,11 @@ source $basedir/zuper/zuper
 
 # globals
 vars+=(profiledir homedir confdir basedir)
-vars+=(templatedir create_profile prefs profilepath)
+vars+=(templatedir create_profile profilepath)
 vars+=(found here)
 vars+=(firejail_profile)
 maps+=(browser browsertype vendor profilename)
-arrs+=(browser_opts)
+arrs+=(browser_opts prefs)
 
 source $basedir/zuper/zuper.init
 
@@ -81,19 +81,37 @@ function launch-mozilla() {
     profilepath="${profiledir}/${browser}.${profile}"
 	local vendordir="$HOME/.${vendor[$browser]}"
 	req=(browser profile vendordir)
-	[[ $profile =~ anon ]] && {
+
+	if [[ $profile =~ anon ]]; then
 		notice "Anonymous profile"
 		# special case, anonymous browsing
 		ztmpd
-		cp -ra "$templatedir" "$ztmpdir"/"$browser"
 		profilepath="$ztmpdir"/"$browser"
-	}
+		if [[ -d "$templatedir" ]]; then
+			act "using template: $templatedir"
+			cp -ra "$templatedir" "$profilepath"
+		else
+			mkdir -p "$profilepath"
+		fi
+	else
+		if [[ -d "$profilepath" ]]; then
+			notice "profile found: $profilepath"
+		else
+			notice "creating profile: $profilepath"
+			mkdir -p $profilepath || {
+				error "error creating profile directory"
+				return 1
+			}
+			[[ -d "$templatedir" ]] && {
+				act "using template: $templatedir"
+				cp -ra "$templatedir"/* "$profilepath"
+			}
+		fi
+	fi
 	freq=("$profilepath")
 	ckreq || return $?
 
 	act "launching    : ${browser}.${profile}"
-	act "profile path : $profilepath"
-	act "preferences  : $prefs"
 	func "temporary ini: ${vendordir}/profiles.ini"
 	mkdir -p    "$vendordir"
 	cat <<EOF > "$vendordir"/profiles.ini
@@ -108,13 +126,13 @@ EOF
 	# Inject preferences. We are lucky in browsers of the mozilla
 	# family the appended settings override preceeding ones and the
 	# unknown ones are ignored
-	cat "$prefs" > "$profilepath"/user.js
-	# special preferences for anonymous mode
-	[[ $profile =~ anon ]] && {
-		cat <<EOF >>    "$ztmpdir"/"$browser"/user.js
-user_pref("browser.privatebrowsing.autostart", true);
-EOF
-	}
+	rm -f "$profilepath"/user.js
+	for i in ${prefs}; do
+		[[ "$i" = "" ]] || {
+			act "preference: $i"
+			cat "$i" >> "$profilepath"/user.js
+		}
+	done
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
@@ -138,38 +156,63 @@ EOF
 
     (sleep 5; rm "$vendordir"/profiles.ini) &
 
-    if [[ "$firejail_profiles" = "" ]]; then
+	option.is_set --firejail || {
 		$browser ${=browser_opts}
-	else
-		# generate a temporary firejail_profile to whitelist all the
-		# browser specific paths
-		ztmp
-		cat <<EOF >> $ztmpfile
-noblacklist $vendordir
-noblacklist ~/.cache/${vendor[$browser]}
-noblacklist $profilepath
+		return $?
+	}
 
-whitelist   $vendordir
-whitelist   $vendordir/profiles.ini
-whitelist   ~/.cache/${vendor[$browser]}
-whitelist   $profilepath
+    warning "experimental firejail support activated"
+	## TODO: outstanding problems:
+	## - user.js for some reason does not get read when running in fj
+	## - palemoon doesn't starts in fj
+	## - not entirely sure the whitelisting options are respected
+
+    # generate a temporary firejail_profile to whitelist all the
+    # browser specific paths
+    ztmp
+    cat <<EOF >> $ztmpfile
+whitelist $vendordir
+whitelist $vendordir/profiles.ini
+whitelist $HOME/.cache/${vendor[$browser]}
+whitelist $profilepath
+
+read-only $vendordir
+read-write $HOME/.cache/${vendor[$browser]}
+read-write $profilepath
 
 $firejail_profiles
+
+
 EOF
-		# find out the real binary
-		local cmd_path=$(command -v $browser)
-		local cmd_type=$(file $cmd_path)
-		local cmd
-		if [[ $cmd_type =~ symbolic ]]; then
-			cmd=${cmd_type[(w)5]}
-		else
-			cmd=${cmd_path}
-		fi
 
-		func "firejail --profile=$ztmpfile $cmd ${=browser_opts}"
-		firejail --profile="$ztmpfile" $cmd ${=browser_opts}
-	fi
+    # find out the real binary
+    cmd=`executable_find $browser`
+    [[ "$cmd" = "" ]] && {
+        error "executable not found for: $browser"
+        return 1
+    }
+    act "executable: $cmd"
 
+    option.is_set --debug-firejail && {
+        warning "Firejail debugging mode"
+        act "CMD: firejail --profile=$ztmpfile $cmd ${=browser_opts}"
+        act "Firejail rules:"
+        cat $ztmpfile
+        act ""
+        firejail --profile=$ztmpfile $cmd ${=browser_opts}
+        return 0
+    }
+
+    option.is_set --audit-firejail && {
+        warning "Firejail audit mode"
+        act "CMD: firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}"
+        firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}
+        act ""
+        return 0
+    }
+
+    firejail --profile="$ztmpfile" $cmd ${=browser_opts}
+	return $?
 }
 
 # }}}
@@ -201,6 +244,73 @@ function browser_is_running() {
 # }}}
 
 # {{{ Pathfinders
+
+# a function that recursively searches through symlinks and scripts to
+# find the ultimate ELF binary executable they point to. Assumes that
+# a shell script contains the binary to call as first argument to the
+# first call to ^exec
+function executable_find() {
+	fn executable_find $*
+	local exe="$1"
+	req=(exe)
+	ckreq || return $?
+
+	local step="$exe"
+	local abs=0
+	local found=0
+	local exepath
+	local exetype
+	while [[ $found = 0 ]]; do
+		func "$step"
+		# find full path to current
+		[[ "$step[1]" = "/" ]] && abs=1
+		[[ "$step[1]" = "." ]] && abs=1
+		if [[ $abs = 0 ]]; then
+			exepath=$(command -v $step)
+			[[ "$exepath" = "" ]] && {
+				error "no executable found in path: $step"
+				return 1
+			}
+			func "abs: $exepath"
+			abs=1
+		else
+			exepath=$step
+		fi
+
+		exetype="$(file $exepath)"
+
+		# check if a symlink
+		[[ $exetype =~ symbolic ]] && {
+			step="$(readlink -f $exepath)"
+			func "$exepath -> $step"
+			continue
+		}
+
+		# check if a script, if yes take first exec
+		[[ $exetype =~ shell ]] && {
+			func "shell script detected"
+			for i in ${(f)"$(cat $exepath)"}; do
+				func "$i"
+				# bail out if nothing found in script
+				found=-1
+				[[ $i =~ ^exec ]] && {
+					step="${i[(w)2]}"
+					func "exec: $step"
+					found=0
+					abs=0
+					break
+				}
+			done
+		}
+
+		[[ $exetype =~ ELF ]] && {
+			func "binary found: $exepath ($exetype)"
+			print $exepath
+			return 0
+		}
+	done
+	return $found
+}
 
 ## looks for a file in all tinfoil directories giving precedence to
 ## user customisations in $homedir
@@ -257,17 +367,28 @@ function prefs_find() {
 	req=(browsertype)
 	ckreq || return $?
 
+	prefs=()
 	case $browsertype in
 		mozilla)
-			[[ -r "${templatedir}/user.js" ]] && {
-				prefs="${templatedir}/user.js"
-				return 0
+			cascade_find "templates/${browsertype}-prefs.js" && {
+				prefs+="$found"
 			}
-			[[ -r "${basedir}/templates/mozilla-prefs.js" ]] && {
-				prefs="${basedir}/templates/mozilla-prefs.js"
-				return 0
+
+			cascade_find "templates/${browser}-prefs.js" && {
+				prefs+="$found"
 			}
-			[[ "$prefs" = "" ]] && return 1
+
+			cascade_find "templates/${profile}-prefs.js" && {
+				prefs+="$found"
+			}
+
+			cascade_find "templates/${browsertype}.${profile}-prefs.js" && {
+				prefs+="$found"
+			}
+
+			cascade_find "templates/${browser}.${profile}-prefs.js" && {
+				prefs+="$found"
+			}
 
 			;;
 		chrome)
@@ -275,7 +396,7 @@ function prefs_find() {
 			;;
 	esac
 
-	return 1
+	return 0
 }
 
 function firejail_find() {
@@ -305,8 +426,7 @@ include $found"
 notice "Tinfoil v0.3"
 
 # {{{ Commands parsed
-option_main=(h -help=h v -version=v -tmp:)
-option_subcommands[new]="-tomb"
+option_main=(h -help=h v -version=v -tmp: t: -type=t -firejail -audit-firejail -debug-firejail)
 option_subcommands[capture]=""
 option.parse $* || return 1
 func "subcommand: $subcommand"
@@ -319,21 +439,6 @@ option.is_set '-h' && help_usage && return 0
 
 # create a new profile
 case $subcommand in
-	new|create)
-		browser=${option_params[1]}
-		profile=${option_params[2]}
-		[[ -d "$profiledir"/${browser}."$profile" ]] && {
-			error "profile already exists: ${profiledir}/${browser}.${profile}"
-			return 1
-		}
-
-		mkdir -p              "${profiledir}/${browser}.${profile}"
-		cp -ra $templatedir/* "${profiledir}/${browser}.${profile}"
-		act "new profile created: ${profiledir}/${browser}.${profile}"
-		act "launch with: tinfoil ${browser} ${profile}"
-		return 0
-		;;
-
 	__empty)
 		help_usage
 		return 0
@@ -344,20 +449,23 @@ case $subcommand in
 		browser="${subcommand[(ws@:@)2]}"
 		profile="${option_params[1]}"
 		act "launching browser $browser with profile $profile"
-		case $browser in
-			chrom*)   browsertype=chrome  ;;
-			firefox*) browsertype=mozilla ;;
-			icecat)   browsertype=mozilla ;;
-			palemoon) browsertype=mozilla ;;
-			*) error "$browser : browser not known to tinfoil"
-			   act "help us add support by opening an issue on: https://github.com/dyne/tinfoil/issues"
-			   ;;
-		esac
-		prefs_find || {
-			error "preferences for $browser ($browsertype) not found in $templatedir"
-			return 1
-		}
-		act "$prefs"
+		if option.is_set -t; then
+			browsertype=`option.value -t`
+			act "browser type manually selected: $browsertype"
+		else
+			case $browser in
+				chrom*)   browsertype=chrome  ;;
+				firefox*) browsertype=mozilla ;;
+				icecat)   browsertype=mozilla ;;
+				palemoon) browsertype=mozilla ;;
+				*) error "$browser : browser not known to tinfoil"
+				   act "use the --type flag to manually select 'mozilla' or 'chrome'"
+				   ;;
+			esac
+		fi
+
+		prefs_find || warning "no preferences found"
+		
 
 		# use firejail if found, fills in $firejail_profile
 		if command -v firejail > /dev/null; then
@@ -374,22 +482,10 @@ case $subcommand in
 			warning "firejail is not installed, process isolation is not available"
 		fi
 
-		if [[ $profile =~ anon ]]; then
-			template_find || {
-				error "templates not found in paths: $basedir $homedir $confdir"
-				return 1
-			}
+		if template_find; then
 			act "$templatedir"
 		else
-			[[ -d "${profiledir}/${browser}.${profile}" ]] || {
-				error "profile not found: ${profiledir}/${browser}.${profile}"
-				error "to create a new one use: tinfoil new ${browser} ${profile}"
-				[[ -r "$profiledir" ]] && {
-					act "list of available profiles:"
-					find $profiledir  -maxdepth 1
-				}
-				return 1
-			}
+			warning "no template found in $basedir $homedir $confdir"
 		fi
 
 		launch-$browsertype

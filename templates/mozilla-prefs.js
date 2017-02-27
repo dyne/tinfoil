@@ -1,17 +1,19 @@
+//////////
+// Tinfoil - Default preferences for mozilla
 
-/* This file is appended on prefs to override them at startup
-   it is used for all 'mozilla' browser types.
+//  This file is appended on prefs to override them at startup
+//  it is used for all 'mozilla' browser types.
 
-   For customisations this file can be copied and modified in
-   different locations:
+//  For customisations this file can be copied and modified in
+//  different locations:
 
-   /etc/tinfoil/templates/mozilla-prefs.js (system-wide)
+//  /etc/tinfoil/templates/mozilla-prefs.js (system-wide)
 
-  ~/.tinfoil/templates/mozilla-prefs.js    (user specific)
+// ~/.tinfoil/templates/mozilla-prefs.js   (user specific)
 
-  ~/.tinfoil/templates/${browser}/prefs.js   (browser specific)
+// ~/.tinfoil/templates/icecat-prefs.js   (browser specific)
 
- */
+
 
 user_pref("app.update.lastUpdateTime.browser-cleanup-thumbnails", 0);
 user_pref("browser.bookmarks.restore_default_bookmarks", false);
