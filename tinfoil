@@ -67,13 +67,8 @@ function launch-mozilla() {
 		notice "Anonymous profile"
 		# special case, anonymous browsing
 		ztmpd
-		local tmp="$ztmpdir"
-		cp -ra "$templatedir" "$tmp"/"$browser"
-		cp -a  "$prefs" "$tmp"/"$browser"/prefs.js
-		cat <<EOF >>    "$tmp"/"$browser"/prefs.js
-user_pref("browser.privatebrowsing.autostart", true);
-EOF
-		profilepath="$tmp"/"$browser"
+		cp -ra "$templatedir" "$ztmpdir"/"$browser"
+		profilepath="$ztmpdir"/"$browser"
 	}
 	freq=("$profilepath")
 	ckreq || return $?
@@ -96,7 +91,15 @@ EOF
 	# Inject preferences. We are lucky in browsers of the mozilla
 	# family the appended settings override preceeding ones and the
 	# unknown ones are ignored
-	cat "$prefs" >> "$profilepath"/prefs.js
+	cat "$prefs" > "$profilepath"/user.js
+	# special preferences for anonymous mode
+	[[ $profile =~ anon ]] && {
+		cat <<EOF >>    "$ztmpdir"/"$browser"/user.js
+user_pref("browser.privatebrowsing.autostart", true);
+EOF
+	}
+	# TODO: interesting to add preference locking functionality
+    # see: http://kb.mozillazine.org/Locking_preferences
 
 	### TODO: EXTENSION INJECTION IS NOT YET WELL IMPLEMENTED
 	# make sure all extensions are equipped by the profile
@@ -213,8 +216,8 @@ function prefs_find() {
 
 	case $browsertype in
 		mozilla)
-			[[ -r "${templatedir}/prefs.js" ]] && {
-				prefs="${templatedir}/prefs.js"
+			[[ -r "${templatedir}/user.js" ]] && {
+				prefs="${templatedir}/user.js"
 				return 0
 			}
 			[[ -r "${basedir}/templates/mozilla-prefs.js" ]] && {
