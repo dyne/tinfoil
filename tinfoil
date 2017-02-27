@@ -136,9 +136,9 @@ EOF
 	# 	done
 	# }
 
-	(sleep 5; rm "$vendordir"/profiles.ini) &
+    (sleep 5; rm "$vendordir"/profiles.ini) &
 
-    if [[ "$firejail_profile" = "" ]]; then
+    if [[ "$firejail_profiles" = "" ]]; then
 		$browser ${=browser_opts}
 	else
 		# generate a temporary firejail_profile to whitelist all the
@@ -153,9 +153,9 @@ whitelist   $vendordir
 whitelist   $vendordir/profiles.ini
 whitelist   ~/.cache/${vendor[$browser]}
 whitelist   $profilepath
-EOF
-		cat "${firejail_profile}" >> $ztmpfile
 
+$firejail_profiles
+EOF
 		# find out the real binary
 		local cmd_path=$(command -v $browser)
 		local cmd_type=$(file $cmd_path)
@@ -227,66 +227,29 @@ function cascade_find() {
 		return 0
 	}
 }
-  
+
 function template_find() {
 	fn template_find
 	req=(browser profile)
 	ckreq || return $?
 
-	local here=$(pwd)
-	[[ -r "${here}/templates/${browser}.${profile}" ]] && {
-		templatedir="${here}/templates/${browser}.${profile}"
-		return 0
+	cascade_find "templates/${browser}.${profile}" && {
+	   templatedir="$found"
+	   return 0
 	}
-	[[ -r "${homedir}/templates/${browser}.${profile}" ]] && {
-		templatedir="${homedir}/templates/${browser}.${profile}"
-		return 0
-	}
-	[[ -r "${confdir}/templates/${browser}.${profile}" ]] && {
-		templatedir="${confdir}/templates/${browser}.${profile}"
-		return 0
-	}
-	[[ -r "${basedir}/templates/${browser}.${profile}" ]] && {
-		templatedir="${basedir}/templates/${browser}.${profile}"
+
+	cascade_find "templates/${browser}" && {
+		templatedir="$found"
 		return 0
 	}
 
-	[[ -r "${here}/templates/${browser}" ]] && {
-		templatedir="${here}/templates/${browser}"
-		return 0
-	}
-	[[ -r "${homedir}/templates/${browser}" ]] && {
-		templatedir="${homedir}/templates/${browser}"
-		return 0
-	}
-	[[ -r "${confdir}/templates/${browser}" ]] && {
-		templatedir="${confdir}/templates/${browser}"
-		return 0
-	}
-	[[ -r "${basedir}/templates/${browser}" ]] && {
-		templatedir="${basedir}/templates/${browser}"
+
+	cascade_find "templates/${browsertype}" && {
+		templatedir="$found"
 		return 0
 	}
 
-	[[ -r "${here}/templates/${browsertype}" ]] && {
-		templatedir="${here}/templates/${browsertype}"
-		return 0
-	}
-	[[ -r "${homedir}/templates/${browsertype}" ]] && {
-		templatedir="${homedir}/templates/${browsertype}"
-		return 0
-	}
-	[[ -r "${confdir}/templates/${browsertype}" ]] && {
-		templatedir="${confdir}/templates/${browsertype}"
-		return 0
-	}
-	[[ -r "${basedir}/templates/${browsertype}" ]] && {
-		templatedir="${basedir}/templates/${browsertype}"
-		return 0
-	}
-
-	[[ "$templatedir" = "" ]] && return 1
-
+	return 1
 }
 
 function prefs_find() {
@@ -312,8 +275,7 @@ function prefs_find() {
 			;;
 	esac
 
-	[[ "$prefs" = "" ]] && return 1
-
+	return 1
 }
 
 function firejail_find() {
@@ -321,19 +283,19 @@ function firejail_find() {
 	req=(browser browsertype)
 	ckreq || return $?
 
-	firejail_profile=""
+	firejail_profiles=""
 
 	cascade_find "templates/${browser}.${profile}.firejail" && {
-		firejail_profile="$found"
-		return 0
+		firejail_profiles+="
+include $found"
 	}
 	cascade_find "templates/${browser}.firejail" && {
-		firejail_profile="$found"
-		return 0
+		firejail_profiles+="
+include $found"
 	}
 	cascade_find "templates/${browsertype}.firejail" && {
-		firejail_profile="$found"
-		return 0
+		firejail_profiles+="
+include $found"
 	}
 	return 1
 }
@@ -356,7 +318,7 @@ create_profile=0
 
 browser="$1"
 shift 1
-        
+
 # support symlinks to script with tinfoil-profilename
 if [[ $0 =~ tinfoil- ]]; then
 	profile=$(basename $0)
@@ -396,10 +358,13 @@ act "$prefs"
 # use firejail if found, fills in $firejail_profile
 if command -v firejail > /dev/null; then
 	firejail_find
-	if [[ "$firejail_profile" = "" ]]; then
-		warning "firejail profile not found"
+	if [[ "$firejail_profiles" = "" ]]; then
+		warning "firejail profiles not found"
 	else
-		act "$firejail_profile"
+		# list the loaded profiles
+		for i in ${(f)firejail_profiles}; do
+			[[ $i =~ ^include ]] && act "${i[(w)2]}"
+		done
 	fi
 else
 	warning "firejail is not installed, process isolation is not available"
