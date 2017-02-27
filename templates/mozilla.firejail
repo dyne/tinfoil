@@ -1,25 +1,47 @@
 # Tinfoil's Firejail profile for Mozilla based browsers
 
-include /etc/firejail/disable-common.inc
-include /etc/firejail/disable-programs.inc
-include /etc/firejail/disable-devel.inc
+whitelist  ~/Downloads
+whitelist  ~/.pki
+whitelist  ~/.config/pulse
+whitelist  ~/.config/pango
 
-read-write  ~/Downloads
-read-write  ~/.pki
-read-only   ~/.config/pango/pangorc
+whitelist ~/.XCompose
+whitelist ~/.config/mimeapps.list
+whitelist ~/.icons
+whitelist ~/.config/user-dirs.dirs
+read-only ~/.config/user-dirs.dirs
+whitelist ~/.asoundrc
+whitelist ~/.config/Trolltech.conf
 
-caps.drop all
-netfilter
-nogroups
-nonewprivs
-noroot
-protocol unix,inet,inet6,netlink
-seccomp
-shell none
+# fonts
+whitelist ~/.fonts
+whitelist ~/.fonts.d
+whitelist ~/.fontconfig
+whitelist ~/.fonts.conf
+whitelist ~/.fonts.conf.d
+whitelist ~/.config/fontconfig
+whitelist ~/.cache/fontconfig
+
+# gtk
+whitelist ~/.gtkrc
+whitelist ~/.gtkrc-2.0
+whitelist ~/.config/gtk-3.0
+whitelist ~/.themes
+
+# dconf
+mkdir ~/.config/dconf
+whitelist ~/.config/dconf
 
 # to fix the dbus dialog
 read-only /usr/bin/dbus-launch
 # open pdf files
 read-only /usr/bin/atril
 
-include /etc/firejail/whitelist-common.inc
+caps.drop all
+# netfilter
+nogroups
+nonewprivs
+noroot
+protocol unix,inet,inet6,netlink
+seccomp
+shell none

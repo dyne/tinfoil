@@ -57,6 +57,19 @@ vendor=(firefox     "mozilla/firefox"
 
 here=$(pwd)
 
+function get_browsertype() {
+	fn get_browsertype $*
+	case $1 in
+		chrom*)   browsertype=chrome  ;;
+		firefox*) browsertype=mozilla ;;
+		icecat)   browsertype=mozilla ;;
+		palemoon) browsertype=mozilla ;;
+		*) error "$1 : browser not known to tinfoil"
+		   act "use the --type flag to manually select 'mozilla' or 'chrome'"
+		   browsertype=""
+		   ;;
+	esac
+}
 # }}}
 
 # {{{ Launchers
@@ -156,63 +169,16 @@ EOF
 
     (sleep 5; rm "$vendordir"/profiles.ini) &
 
-	option.is_set --firejail || {
-		$browser ${=browser_opts}
+	option.is_set -e && {
+		cmd=$(option.value -e)
+		act "executable: $cmd"
+		$cmd
 		return $?
 	}
 
-    warning "experimental firejail support activated"
-	## TODO: outstanding problems:
-	## - user.js for some reason does not get read when running in fj
-	## - palemoon doesn't starts in fj
-	## - not entirely sure the whitelisting options are respected
-
-    # generate a temporary firejail_profile to whitelist all the
-    # browser specific paths
-    ztmp
-    cat <<EOF >> $ztmpfile
-whitelist $vendordir
-whitelist $vendordir/profiles.ini
-whitelist $HOME/.cache/${vendor[$browser]}
-whitelist $profilepath
-
-read-only $vendordir
-read-write $HOME/.cache/${vendor[$browser]}
-read-write $profilepath
-
-$firejail_profiles
-
-
-EOF
-
-    # find out the real binary
-    cmd=`executable_find $browser`
-    [[ "$cmd" = "" ]] && {
-        error "executable not found for: $browser"
-        return 1
-    }
-    act "executable: $cmd"
-
-    option.is_set --debug-firejail && {
-        warning "Firejail debugging mode"
-        act "CMD: firejail --profile=$ztmpfile $cmd ${=browser_opts}"
-        act "Firejail rules:"
-        cat $ztmpfile
-        act ""
-        firejail --profile=$ztmpfile $cmd ${=browser_opts}
-        return 0
-    }
-
-    option.is_set --audit-firejail && {
-        warning "Firejail audit mode"
-        act "CMD: firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}"
-        firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}
-        act ""
-        return 0
-    }
-
-    firejail --profile="$ztmpfile" $cmd ${=browser_opts}
+	$browser
 	return $?
+
 }
 
 # }}}
@@ -426,8 +392,8 @@ include $found"
 notice "Tinfoil v0.3"
 
 # {{{ Commands parsed
-option_main=(h -help=h v -version=v -tmp: t: -type=t -firejail -audit-firejail -debug-firejail)
-option_subcommands[capture]=""
+option_main=(h -help=h v -version=v -tmp: t: -type=t e: -exec=e)
+option_subcommands[conf]=""
 option.parse $* || return 1
 func "subcommand: $subcommand"
 option.is_set '-h' && help_usage && return 0
@@ -444,43 +410,60 @@ case $subcommand in
 		return 0
 		;;
 
+	conf)
+		# print out the configuration for other wrappers
+		browser="${option_params[1]}"
+		profile="${option_params[2]}"
+		[[ "$profile" = "" ]] && {
+			error "usage: $0 conf browser profile"
+			return 1
+		}
+		get_browsertype $browser
+		cat <<EOF
+browser="$browser"
+profile="$profile"
+browsertype="$browsertype"
+profilepath="~/.tinfoil/profiles/$browser.$profile"
+vendorpath="~/.${vendor[$browser]}"
+cachepath="~/.cache/${vendor[$browser]}"
+EOF
+		cmd=`executable_find $browser`
+		if [[ "$cmd" = "" ]]; then
+			warning "executable not found for: $browser"
+		else
+			cat <<EOF
+browser_executable="$cmd"
+EOF
+		fi
+		firejail_find
+		[[ "$firejail_profiles" = "" ]] || {
+			# list the loaded profiles
+			for i in ${(f)firejail_profiles}; do
+				[[ $i =~ ^include ]] &&
+cat <<EOF
+firejail_profiles+=(${i[(w)2]})
+EOF
+			done
+		}
+
+		return 0
+		;;
+
 	# default command start with: tinfoil [browser] [profile]
 	__unknown:*)
 		browser="${subcommand[(ws@:@)2]}"
 		profile="${option_params[1]}"
+
 		act "launching browser $browser with profile $profile"
 		if option.is_set -t; then
 			browsertype=`option.value -t`
 			act "browser type manually selected: $browsertype"
 		else
-			case $browser in
-				chrom*)   browsertype=chrome  ;;
-				firefox*) browsertype=mozilla ;;
-				icecat)   browsertype=mozilla ;;
-				palemoon) browsertype=mozilla ;;
-				*) error "$browser : browser not known to tinfoil"
-				   act "use the --type flag to manually select 'mozilla' or 'chrome'"
-				   ;;
-			esac
+			get_browsertype $browser
 		fi
 
 		prefs_find || warning "no preferences found"
 		
-
-		# use firejail if found, fills in $firejail_profile
-		if command -v firejail > /dev/null; then
-			firejail_find
-			if [[ "$firejail_profiles" = "" ]]; then
-				warning "firejail profiles not found"
-			else
-				# list the loaded profiles
-				for i in ${(f)firejail_profiles}; do
-					[[ $i =~ ^include ]] && act "${i[(w)2]}"
-				done
-			fi
-		else
-			warning "firejail is not installed, process isolation is not available"
-		fi
 
 		if template_find; then
 			act "$templatedir"

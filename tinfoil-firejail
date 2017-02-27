@@ -1,0 +1,52 @@
+#!/usr/bin/env zsh
+
+[[ "$2" = "" ]] && {
+	print "usage: $0 browser profile"
+	return 1
+}
+
+# read the config
+eval `tinfoil conf $1 $2`
+# browser="$browser"
+# profile="$profile"
+# profilepath="$HOME/.tinfoil/profiles/$browser.$profile"
+# vendorpath="$HOME/.${vendor[$browser]}"
+# cachepath="$HOME/.cache/${vendor[$browser]}"
+# browser_executable="$cmd"
+
+# generate the firejail profile
+tmp=$(mktemp)
+cat <<EOF >> $tmp
+whitelist $vendorpath
+whitelist $profilepath
+whitelist $cachepath
+EOF
+
+# user configurations and installed profiles
+for i in $firejail_profiles; do
+	cat <<EOF >> $tmp
+include $i
+
+EOF
+done
+
+firejail --profile=$tmp tinfoil -e $browser_executable $browser $profile
+
+
+# option.is_set --debug-firejail && {
+#     warning "Firejail debugging mode"
+#     act "CMD: firejail --profile=$ztmpfile $cmd ${=browser_opts}"
+#     act "Firejail rules:"
+#     cat $ztmpfile
+#     act ""
+#     firejail --profile=$ztmpfile $cmd ${=browser_opts}
+#     return 0
+# }
+
+# option.is_set --audit-firejail && {
+#     warning "Firejail audit mode"
+#     act "CMD: firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}"
+#     firejail --profile=$ztmpfile --audit $cmd ${=browser_opts}
+#     act ""
+#     return 0
+# }
