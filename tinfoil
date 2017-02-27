@@ -61,15 +61,13 @@ function launch-mozilla() {
 	func "browser: $browser"
 	func "profile: $profile"
     profilepath="${profiledir}/${browser}.${profile}"
-	local vendordir=$vendor[$browser]
+	local vendordir="$vendor[$browser]"
 	req=(browser profile vendordir)
-	[[ $profile =~ anon ]] || {
+	[[ $profile =~ anon ]] && {
 		notice "Anonymous profile"
 		# special case, anonymous browsing
-		ztmp
-		rm -f "$ztmpfile"
-		mkdir "$ztmpfile"
-		local tmp="$ztmpfile"
+		ztmpd
+		local tmp="$ztmpdir"
 		cp -ra "$templatedir" "$tmp"/"$browser"
 		cp -a  "$prefs" "$tmp"/"$browser"/prefs.js
 		cat <<EOF >>    "$tmp"/"$browser"/prefs.js
@@ -83,6 +81,7 @@ EOF
 
 	act "launching    : ${browser}.${profile}"
 	act "profile path : $profilepath"
+	act "preferences  : $prefs"
 	func "temporary ini: ${vendordir}/profiles.ini"
 	mkdir -p    "$vendordir"
 	cat <<EOF > "$vendordir"/profiles.ini
@@ -94,7 +93,9 @@ IsRelative=0
 Path=${profilepath}
 EOF
 
-	# inject preferences
+	# Inject preferences. We are lucky in browsers of the mozilla
+	# family the appended settings override preceeding ones and the
+	# unknown ones are ignored
 	cat "$prefs" >> "$profilepath"/prefs.js
 
 	### TODO: EXTENSION INJECTION IS NOT YET WELL IMPLEMENTED
@@ -123,7 +124,7 @@ EOF
 
 
 function help_usage() {
-	fn help_usage $*
+	fn help_usage
 	act "Usage: tinfoil browser profile_name"
 }
 
@@ -134,10 +135,10 @@ function browser_is_running() {
 	req=(browser)
 	ckreq || return $?
 
-	local brgrep="[${browser[1]}]`print $browser | cut -c2-`"
+	local brgrep="[${browser[1]}]$(print $browser | cut -c2-)"
 	func "checking ps ax for '$brgrep'"
 
-	ps ax | grep "$brgrep" > /dev/null
+	pgrep $browser
 	[[ $? = 0 ]] && {
 		act "$browser found already running, using -no-remote"
 		browser_opts+=(-no-remote)		
@@ -145,11 +146,11 @@ function browser_is_running() {
 }
 
 function template_find() {
-	fn template_find $*
+	fn template_find
 	req=(browser profile)
 	ckreq || return $?
 
-	local here=`pwd`
+	local here=$(pwd)
 	[[ -r "${here}/templates/${browser}.${profile}" ]] && {
 		templatedir="${here}/templates/${browser}.${profile}"
 		return 0
@@ -206,7 +207,7 @@ function template_find() {
 }
 
 function prefs_find() {
-	fn prefs_find $*
+	fn prefs_find
 	req=(browsertype)
 	ckreq || return $?
 
@@ -233,10 +234,10 @@ function prefs_find() {
 }
 
 [[ "$1" = "" ]]      && help_usage && return 0
-[[ " -h " =~ "$*" ]] && help_usage && return 0
+[[ $* =~ -h ]] && help_usage && return 0
 
 create_profile=0
-[[ "new" =~ "$1" ]] && {
+[[ "$1" = "new" ]] && {
 	create_profile=1
 	shift 1
 }
@@ -245,8 +246,8 @@ browser="$1"
 shift 1
         
 # support symlinks to script with tinfoil-profilename
-if [[ "$0" =~ "tinfoil-" ]]; then
-	profile=`basename $0`
+if [[ $0 =~ tinfoil- ]]; then
+	profile=$(basename $0)
 	profile=${profile[(ws:-:)2]}
 else
 	profile="${1}"
@@ -295,7 +296,7 @@ act "$prefs preferences found"
 
 # create a new profile
 [[ $create_profile = 1 ]] && {
-	[[ -d "$profiledir"/"$browser"."$profile" ]] && {
+	[[ -d "$profiledir"/${browser}."$profile" ]] && {
 		error "profile already exists: ${profiledir}/${browser}.${profile}"
 		return 1
 	}
