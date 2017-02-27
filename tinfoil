@@ -302,105 +302,119 @@ include $found"
 
 # }}}
 
-# {{{ Main()
-
 notice "Tinfoil v0.3"
 
-[[ "$1" = "" ]] && help_usage && return 0
-[[ $* =~ -h ]]  && help_usage && return 0
+# {{{ Commands parsed
+option_main=(h -help=h v -version=v -tmp:)
+option_subcommands[new]="-tomb"
+option_subcommands[capture]=""
+option.parse $* || return 1
+func "subcommand: $subcommand"
+option.is_set '-h' && help_usage && return 0
 
-# TODO: proper command parsing using zuper
-create_profile=0
-[[ "$1" = "new" ]] && {
-	create_profile=1
-	shift 1
-}
+# }}}
 
-browser="$1"
-shift 1
+# {{{ Main()
 
-# support symlinks to script with tinfoil-profilename
-if [[ $0 =~ tinfoil- ]]; then
-	profile=$(basename $0)
-	profile=${profile[(ws:-:)2]}
-else
-	profile="${1}"
-	shift 1
-fi
 
-browser_opts=($*)
+# create a new profile
+case $subcommand in
+	new|create)
+		browser=${option_params[1]}
+		profile=${option_params[2]}
+		[[ -d "$profiledir"/${browser}."$profile" ]] && {
+			error "profile already exists: ${profiledir}/${browser}.${profile}"
+			return 1
+		}
 
-case $browser in
-	chrom*)   browsertype=chrome  ;;
-	firefox*) browsertype=mozilla ;;
-	icecat)   browsertype=mozilla ;;
-	palemoon) browsertype=mozilla ;;
-	*) error "$browser : browser not known to tinfoil"
-	   act "help us add support by opening an issue on: https://github.com/dyne/tinfoil/issues"
-	   ;;
+		mkdir -p              "${profiledir}/${browser}.${profile}"
+		cp -ra $templatedir/* "${profiledir}/${browser}.${profile}"
+		act "new profile created: ${profiledir}/${browser}.${profile}"
+		act "launch with: tinfoil ${browser} ${profile}"
+		return 0
+		;;
+
+	__empty)
+		help_usage
+		return 0
+		;;
+
+	# default command start with: tinfoil [browser] [profile]
+	__unknown:*)
+		browser="${subcommand[(ws@:@)2]}"
+		profile="${option_params[1]}"
+		act "launching browser $browser with profile $profile"
+		case $browser in
+			chrom*)   browsertype=chrome  ;;
+			firefox*) browsertype=mozilla ;;
+			icecat)   browsertype=mozilla ;;
+			palemoon) browsertype=mozilla ;;
+			*) error "$browser : browser not known to tinfoil"
+			   act "help us add support by opening an issue on: https://github.com/dyne/tinfoil/issues"
+			   ;;
+		esac
+		prefs_find || {
+			error "preferences for $browser ($browsertype) not found in $templatedir"
+			return 1
+		}
+		act "$prefs"
+
+		# use firejail if found, fills in $firejail_profile
+		if command -v firejail > /dev/null; then
+			firejail_find
+			if [[ "$firejail_profiles" = "" ]]; then
+				warning "firejail profiles not found"
+			else
+				# list the loaded profiles
+				for i in ${(f)firejail_profiles}; do
+					[[ $i =~ ^include ]] && act "${i[(w)2]}"
+				done
+			fi
+		else
+			warning "firejail is not installed, process isolation is not available"
+		fi
+
+		if [[ $profile =~ anon ]]; then
+			template_find || {
+				error "templates not found in paths: $basedir $homedir $confdir"
+				return 1
+			}
+			act "$templatedir"
+		else
+			[[ -d "${profiledir}/${browser}.${profile}" ]] || {
+				error "profile not found: ${profiledir}/${browser}.${profile}"
+				error "to create a new one use: tinfoil new ${browser} ${profile}"
+				[[ -r "$profiledir" ]] && {
+					act "list of available profiles:"
+					find $profiledir  -maxdepth 1
+				}
+				return 1
+			}
+		fi
+
+		launch-$browsertype
+		return $?
+
+		;;
+
 esac
+
+
+
+# # support symlinks to script with tinfoil-profilename
+# if [[ $0 =~ tinfoil- ]]; then
+# 	profile=$(basename $0)
+# 	profile=${profile[(ws:-:)2]}
+# fi
+
+# browser_opts=($*)
+
 
 
 # browser_is_running $browser
 
-template_find || {
-	error "templates not found in paths: $basedir $homedir $confdir"
-	return 1
-}
-act "$templatedir"
-
-prefs_find || {
-	error "preferences for $browser ($browsertype) not found in $templatedir"
-	return 1
-}
-act "$prefs"
-
-# use firejail if found, fills in $firejail_profile
-if command -v firejail > /dev/null; then
-	firejail_find
-	if [[ "$firejail_profiles" = "" ]]; then
-		warning "firejail profiles not found"
-	else
-		# list the loaded profiles
-		for i in ${(f)firejail_profiles}; do
-			[[ $i =~ ^include ]] && act "${i[(w)2]}"
-		done
-	fi
-else
-	warning "firejail is not installed, process isolation is not available"
-fi
-
 
 ## TODO: tor profile to detect tor on local or remote
 
-# create a new profile
-[[ $create_profile = 1 ]] && {
-	[[ -d "$profiledir"/${browser}."$profile" ]] && {
-		error "profile already exists: ${profiledir}/${browser}.${profile}"
-		return 1
-	}
-	mkdir -p              "${profiledir}/${browser}.${profile}"
-	cp -ra $templatedir/* "${profiledir}/${browser}.${profile}"
-	act "new profile created: ${profiledir}/${browser}.${profile}"
-	act "launch with: tinfoil ${browser} ${profile}"
-	return 0
-}
-
-[[ $profile =~ anon ]] || {
-
-	[[ -d "${profiledir}/${browser}.${profile}" ]] || {
-		error "profile not found: ${profiledir}/${browser}.${profile}"
-		error "to create a new one use: tinfoil new ${browser} ${profile}"
-		[[ -r "$profiledir" ]] && {
-			act "list of available profiles:"
-			find $profiledir  -maxdepth 1
-		}
-		return 1
-	}
-
-}
-
-launch-$browsertype
-return $?
 
 # }}}
