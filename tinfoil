@@ -427,7 +427,7 @@ profilepath="~/.tinfoil/profiles/$browser.$profile"
 vendorpath="~/.${vendor[$browser]}"
 cachepath="~/.cache/${vendor[$browser]}"
 EOF
-		cmd=`executable_find $browser`
+		cmd=$(executable_find $browser)
 		if [[ "$cmd" = "" ]]; then
 			warning "executable not found for: $browser"
 		else
@@ -456,7 +456,7 @@ EOF
 
 		act "launching browser $browser with profile $profile"
 		if option.is_set -t; then
-			browsertype=`option.value -t`
+			browsertype=$(option.value -t)
 			act "browser type manually selected: $browsertype"
 		else
 			get_browsertype $browser

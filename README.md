@@ -40,7 +40,10 @@ We live in times when Russian Hackers may be hiding behind every corner; then if
 
 Tinfoil provides a simple and powerful way to maintain browser configurations across profiles and even different browsers of the same family (right now only the `mozilla` and `chrome` families are supported). The way it works is by cascading configurations like `user.js` (basically the `about:config` settings) by applying some to all browsers of the same family, some to specific browsers and some to specific profile names.
 
-The configurations are stored both in system-wide and user-specific directories, where user specific configurations end up overriding the system-wide ones. The locations where the configurations reside are:
+
+### Cascading configurations
+
+Configurations are stored both in system-wide and user-specific directories, where user specific configurations end up overriding the system-wide ones. The locations where the configurations reside are:
  - `/usr/local/share/tinfoil/templates` (fallback defaults)
  - `/etc/tinfoil/templates` (system-wide defaults)
  - `~/.tinfoil/templates` (user defaults)
@@ -52,6 +55,8 @@ In each directory the configuration files can be named after:
  - a specific profile for a certain browser (i.e. `icecat.luther-prefs.js`) so that the settings will be activated only when a specific profile is used in a specific browser
 
 For instance the default configuration for all `mozilla` family browsers is [templates/mozilla-prefs.js](templates/mozilla-prefs.js) and the default configuration for the all the anonymous profiles is [templates/mozilla.anon-prefs.js](templates/mozilla.anon-prefs.js).
+
+### Firejail process isolation
 
 In case `firejail` is installed, then the `tinfoil-firejail` command can be used to isolate the execution environment of the browser; it is used the same way as `tinfoil` followed by two arguments: the name of the browser and the name of the profile.
 
