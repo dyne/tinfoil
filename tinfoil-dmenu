@@ -1,0 +1,70 @@
+#!/usr/bin/env zsh
+#
+# Tinfoil
+#
+# A tool to manage multiple profiles for web browsers
+#
+# {{{ License
+#
+# Copyright (C) 2017 Dyne.org Foundation
+#
+# Tinfoil is designed, written and maintained by Denis Roio <jaromil@dyne.org>
+#
+# This source code is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+#
+# This source code is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  Please refer
+# to the GNU Public License for more details.
+#
+# You should have received a copy of the GNU Public License along with
+# this source code; if not, write to: Free Software Foundation, Inc.,
+# 675 Mass Ave, Cambridge, MA 02139, USA.
+
+# }}} - License
+
+tinfoil_cmd=tinfoil
+
+normfg="#939393"
+normbg="#2D3743"
+selbg="#203020"
+selfg="#ffffff"
+maxheight=10
+hostname=`hostname`
+font="Inconsolata"
+
+
+typeset -aU browsers
+browsers=()
+profiles=""
+for b in ${(f)"$(ls ~/.tinfoil/profiles)"}; do
+	local br=${b[(ws:.:)1]}
+	local pr=${b[(ws:.:)2]}
+	browsers+=(${b[(ws:.:)1]})
+	profiles+="$br $pr
+"
+done
+for b in $browsers; do
+	profiles+="$b anon
+"
+done
+
+height=$(print ${profiles} | wc -l)
+if [[ $height -gt $maxheight ]]; then 
+	heightfit=$maxheight
+else 
+	heightfit=$height
+fi
+
+sel=$(print ${profiles} \
+	| dmenu -b -i \
+		-nb $normbg \
+		-nf $normfg \
+		-sb $selbg \
+		-sf $selfg \
+		-l $heightfit
+)
+tinfoil ${=sel}

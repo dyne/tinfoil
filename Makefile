@@ -20,9 +20,12 @@ install:
 	@sed "s/^basedir=./basedir=$(ESCPREFIX)\/share\/tinfoil/g" \
 		 tinfoil > $(PREFIX)/bin/tinfoil
 	@chmod +x      $(PREFIX)/bin/tinfoil
+	@install -m 0755 tinfoil-firejail $(PREFIX)/bin/tinfoil-firejail
+	@install -m 0755 tinfoil-dmenu    $(PREFIX)/bin/tinfoil-dmenu
 	@echo "Default configuration in /etc/tinfoil"
 	@mkdir -p /etc/tinfoil
-	@install -m 0644 -b -C templates/mozilla-prefs.js /etc/tinfoil
+	@install -m 0644 -b -C templates/mozilla-prefs.js      /etc/tinfoil
+	@install -m 0644 -b -C templates/mozilla.anon-prefs.js /etc/tinfoil
 
 lint:
 	shellcheck -e SC1083,SC2048,SC2086,SC2034 -s zsh -f gcc tinfoil
