@@ -26,9 +26,14 @@
 
 # }}} - License
 
+# {{{ Initialisation
+
 # resources in order of priority
 # this is where tinfoil looks for template/ and firejail/ dirs
 homedir=$HOME/.tinfoil
+# this can be changed, for instance to move templates in a tomb
+profiledir=${TINFOIL_HOME:-$homedir/profiles}
+
 confdir=/etc/tinfoil
 # this is changed to $PREFIX/share/tinfoil by make install
 basedir=.
@@ -42,6 +47,15 @@ maps+=(browser browsertype vendor profilename)
 arrs+=(browser_opts)
 
 source $basedir/zuper/zuper.init
+
+vendor=(firefox     "$HOME/.mozilla/firefox"
+		firefox-esr "$HOME/.mozilla/firefox"
+		icecat      "$HOME/.mozilla/icecat"
+		palemoon    "$HOME/.moonchild productions/pale moon")
+
+# }}}
+
+# {{{ Launchers
 
 function launch-chrome() {
 	fn launch-chrome $*
@@ -72,7 +86,6 @@ function launch-mozilla() {
 	}
 	freq=("$profilepath")
 	ckreq || return $?
-
 
 	act "launching    : ${browser}.${profile}"
 	act "profile path : $profilepath"
@@ -125,6 +138,9 @@ EOF
 	$browser ${=browser_opts}
 }
 
+# }}}
+
+# {{{ Misc functions
 
 function help_usage() {
 	fn help_usage
@@ -147,6 +163,10 @@ function browser_is_running() {
 		browser_opts+=(-no-remote)		
 	}
 }
+
+# }}}
+
+# {{{ Pathfinders
 
 function template_find() {
 	fn template_find
@@ -236,9 +256,14 @@ function prefs_find() {
 
 }
 
-[[ "$1" = "" ]]      && help_usage && return 0
-[[ $* =~ -h ]] && help_usage && return 0
+# }}}
 
+# {{{ Main()
+
+[[ "$1" = "" ]] && help_usage && return 0
+[[ $* =~ -h ]]  && help_usage && return 0
+
+# TODO: proper command parsing using zuper
 create_profile=0
 [[ "$1" = "new" ]] && {
 	create_profile=1
@@ -258,14 +283,6 @@ else
 fi
 
 browser_opts=($*)
-
-# this can be changed, for instance to move templates in a tomb
-profiledir=${TINFOIL_HOME:-$homedir/profiles}
-
-vendor=(firefox     "$HOME/.mozilla/firefox"
-		firefox-esr "$HOME/.mozilla/firefox"
-		icecat      "$HOME/.mozilla/icecat"
-		palemoon    "$HOME/.moonchild productions/pale moon")
 
 case $browser in
 	chrom*)   browsertype=chrome  ;;
@@ -326,3 +343,5 @@ act "$prefs preferences found"
 
 launch-$browsertype
 return $?
+
+# }}}
