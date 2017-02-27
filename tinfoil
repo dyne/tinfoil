@@ -43,15 +43,19 @@ source $basedir/zuper/zuper
 # globals
 vars+=(profiledir homedir confdir basedir)
 vars+=(templatedir create_profile prefs profilepath)
+vars+=(found here)
+vars+=(firejail_profile)
 maps+=(browser browsertype vendor profilename)
 arrs+=(browser_opts)
 
 source $basedir/zuper/zuper.init
 
-vendor=(firefox     "$HOME/.mozilla/firefox"
-		firefox-esr "$HOME/.mozilla/firefox"
-		icecat      "$HOME/.mozilla/icecat"
-		palemoon    "$HOME/.moonchild productions/pale moon")
+vendor=(firefox     "mozilla/firefox"
+		firefox-esr "mozilla/firefox"
+		icecat      "mozilla/icecat"
+		palemoon    "moonchild productions/pale moon")
+
+here=$(pwd)
 
 # }}}
 
@@ -75,7 +79,7 @@ function launch-mozilla() {
 	func "browser: $browser"
 	func "profile: $profile"
     profilepath="${profiledir}/${browser}.${profile}"
-	local vendordir="$vendor[$browser]"
+	local vendordir="$HOME/.${vendor[$browser]}"
 	req=(browser profile vendordir)
 	[[ $profile =~ anon ]] && {
 		notice "Anonymous profile"
@@ -133,9 +137,39 @@ EOF
 	# }
 
 	(sleep 5; rm "$vendordir"/profiles.ini) &
-	### TODO: FIREJAIL SUPPORT
-    #   firejail --profile="${firejail}"
-	$browser ${=browser_opts}
+
+    if [[ "$firejail_profile" = "" ]]; then
+		$browser ${=browser_opts}
+	else
+		# generate a temporary firejail_profile to whitelist all the
+		# browser specific paths
+		ztmp
+		cat <<EOF >> $ztmpfile
+noblacklist $vendordir
+noblacklist ~/.cache/${vendor[$browser]}
+noblacklist $profilepath
+
+whitelist   $vendordir
+whitelist   $vendordir/profiles.ini
+whitelist   ~/.cache/${vendor[$browser]}
+whitelist   $profilepath
+EOF
+		cat "${firejail_profile}" >> $ztmpfile
+
+		# find out the real binary
+		local cmd_path=$(command -v $browser)
+		local cmd_type=$(file $cmd_path)
+		local cmd
+		if [[ $cmd_type =~ symbolic ]]; then
+			cmd=${cmd_type[(w)5]}
+		else
+			cmd=${cmd_path}
+		fi
+
+		func "firejail --profile=$ztmpfile $cmd ${=browser_opts}"
+		firejail --profile="$ztmpfile" $cmd ${=browser_opts}
+	fi
+
 }
 
 # }}}
@@ -168,6 +202,32 @@ function browser_is_running() {
 
 # {{{ Pathfinders
 
+## looks for a file in all tinfoil directories giving precedence to
+## user customisations in $homedir
+function cascade_find() {
+	fn cascade_find $*
+	local file="$1"
+	req=(file)
+	ckreq || return $?
+	found=""
+	[[ -r "${here}/${file}" ]] && {
+		found="${here}/${file}"
+		return 0
+	}
+	[[ -r "${homedir}/${file}" ]] && {
+		found="${homedir}/${file}"
+		return 0
+	}
+	[[ -r "${confdir}/${file}" ]] && {
+		found="${confdir}/${file}"
+		return 0
+	}
+	[[ -r "${basedir}/${file}" ]] && {
+		found="${basedir}/${file}"
+		return 0
+	}
+}
+  
 function template_find() {
 	fn template_find
 	req=(browser profile)
@@ -256,9 +316,33 @@ function prefs_find() {
 
 }
 
+function firejail_find() {
+	fn firejail_find
+	req=(browser browsertype)
+	ckreq || return $?
+
+	firejail_profile=""
+
+	cascade_find "templates/${browser}.${profile}.firejail" && {
+		firejail_profile="$found"
+		return 0
+	}
+	cascade_find "templates/${browser}.firejail" && {
+		firejail_profile="$found"
+		return 0
+	}
+	cascade_find "templates/${browsertype}.firejail" && {
+		firejail_profile="$found"
+		return 0
+	}
+	return 1
+}
+
 # }}}
 
 # {{{ Main()
+
+notice "Tinfoil v0.3"
 
 [[ "$1" = "" ]] && help_usage && return 0
 [[ $* =~ -h ]]  && help_usage && return 0
@@ -294,7 +378,6 @@ case $browser in
 	   ;;
 esac
 
-notice "Tinfoil v0.3"
 
 # browser_is_running $browser
 
@@ -302,14 +385,25 @@ template_find || {
 	error "templates not found in paths: $basedir $homedir $confdir"
 	return 1
 }
+act "$templatedir"
 
 prefs_find || {
 	error "preferences for $browser ($browsertype) not found in $templatedir"
 	return 1
 }
+act "$prefs"
 
-act "$templatedir template found"
-act "$prefs preferences found"
+# use firejail if found, fills in $firejail_profile
+if command -v firejail > /dev/null; then
+	firejail_find
+	if [[ "$firejail_profile" = "" ]]; then
+		warning "firejail profile not found"
+	else
+		act "$firejail_profile"
+	fi
+else
+	warning "firejail is not installed, process isolation is not available"
+fi
 
 
 ## TODO: tor profile to detect tor on local or remote
