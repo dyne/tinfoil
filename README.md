@@ -51,11 +51,11 @@ In each directory the configuration files can be named after:
  - a specific profile for all browsers of the same family (i.e. `mozilla.luther-prefs.js`) so that all profiles named `luther` will inherit the configuration when used in any browser of the `mozilla` family
  - a specific profile for a certain browser (i.e. `icecat.luther-prefs.js`) so that the settings will be activated only when a specific profile is used in a specific browser
 
-For instance the default configuration for all `mozilla` family browsers is [](templates/mozilla-prefs.js) and the default configuration for the all the anonymous profiles is [](templates/mozilla.anon-prefs.js).
+For instance the default configuration for all `mozilla` family browsers is [templates/mozilla-prefs.js](templates/mozilla-prefs.js) and the default configuration for the all the anonymous profiles is [templates/mozilla.anon-prefs.js](templates/mozilla.anon-prefs.js).
 
 In case `firejail` is installed, then the `tinfoil-firejail` command can be used to isolate the execution environment of the browser; it is used the same way as `tinfoil` followed by two arguments: the name of the browser and the name of the profile.
 
-Firejail configurations are files terminated by the `.firejail` extension and function pretty much the same way as the `-prefs.js` files: they are found in the same `/templates` locations and can be named and assigned to a browsery family, a specific browser and/or to profile names. For instance the default firejail configuration for all `mozilla` family browsers is [](templates/mozilla.firejail).
+Firejail configurations are files terminated by the `.firejail` extension and function pretty much the same way as the `-prefs.js` files: they are found in the same `/templates` locations and can be named and assigned to a browsery family, a specific browser and/or to profile names. For instance the default firejail configuration for all `mozilla` family browsers is [templates/mozilla.firejail](templates/mozilla.firejail).
 
 
 ## Stage of development
