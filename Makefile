@@ -25,4 +25,4 @@ install:
 	@install -m 0644 -b -C templates/mozilla-prefs.js /etc/tinfoil
 
 lint:
-	shellcheck --exclude=SC1083 tinfoil
+	shellcheck -e SC1083,SC2048,SC2086,SC2034 -s zsh -f gcc tinfoil
