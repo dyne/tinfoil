@@ -41,17 +41,19 @@ basedir=.
 source $basedir/zuper/zuper
 
 # globals
+vars+=(browser family profile)
 vars+=(profiledir homedir confdir basedir)
 vars+=(templatedir create_profile profilepath)
 vars+=(found here)
 vars+=(firejail_profile)
-maps+=(browser browsertype vendor profilename)
+maps+=(browsertype vendor profilename)
 arrs+=(browser_opts prefs)
 
 source $basedir/zuper/zuper.init
 
 vendor=(firefox     "mozilla/firefox"
 		firefox-esr "mozilla/firefox"
+		iceweasel   "mozilla/firefox"
 		icecat      "mozilla/icecat"
 		palemoon    "moonchild productions/pale moon")
 
@@ -60,10 +62,11 @@ here=$(pwd)
 function get_browsertype() {
 	fn get_browsertype $*
 	case $1 in
-		chrom*)   browsertype=chrome  ;;
-		firefox*) browsertype=mozilla ;;
-		icecat)   browsertype=mozilla ;;
-		palemoon) browsertype=mozilla ;;
+		chrom*)    browsertype=chrome  ;;
+		firefox*)  browsertype=mozilla ;;
+		icecat)    browsertype=mozilla ;;
+		iceweasel) browsertype=mozilla ;;
+		palemoon)  browsertype=mozilla ;;
 		*) error "$1 : browser not known to tinfoil"
 		   act "use the --type flag to manually select 'mozilla' or 'chrome'"
 		   browsertype=""
@@ -74,67 +77,81 @@ function get_browsertype() {
 
 # {{{ Launchers
 
-function launch-chrome() {
-	fn launch-chrome $*
-    profilepath="${profiledir}/${browser}.${profile}"
-	req=(browser profile)
-	freq=($profilepath)
+function setup-profile() {
+	fn setup-profile
+	req=(profile browser)
 	ckreq || return $?
-
-	act "launching     : $browser"
-	act "profile path  : $profilepath"
-
-	$app --user-data-dir="$profilepath" ${=browser_opts} $*
-}
-
-function launch-mozilla() {
-	fn launch-mozilla $*
-	func "browser: $browser"
-	func "profile: $profile"
-    profilepath="${profiledir}/${browser}.${profile}"
-	local vendordir="$HOME/.${vendor[$browser]}"
-	req=(browser profile vendordir)
 
 	if [[ $profile =~ anon ]]; then
 		notice "Anonymous profile"
-		# special case, anonymous browsing
 		ztmpd
 		profilepath="$ztmpdir"/"$browser"
+	    template_find || act "no template found"
 		if [[ -d "$templatedir" ]]; then
-			act "using template: $templatedir"
+			act "template: $templatedir"
 			cp -ra "$templatedir" "$profilepath"
 		else
 			mkdir -p "$profilepath"
 		fi
+
 	else
+
+		profilepath="${profiledir}/${browser}.${profile}"
 		if [[ -d "$profilepath" ]]; then
-			notice "profile found: $profilepath"
+			notice "Profile found: $profilepath"
 		else
-			notice "creating profile: $profilepath"
+			notice "New profile: $profilepath"
 			mkdir -p $profilepath || {
 				error "error creating profile directory"
 				return 1
 			}
+			template_find || act "no template found"
 			[[ -d "$templatedir" ]] && {
-				act "using template: $templatedir"
+				act "template: $templatedir"
 				cp -ra "$templatedir"/* "$profilepath"
 			}
 		fi
 	fi
-	freq=("$profilepath")
+	return 0
+}
+
+# function launch-chrome() {
+# 	fn launch-chrome $*
+# 	req=(browser profile)
+# 	freq=($profilepath)
+# 	ckreq || return $?
+
+# 	act "launching     : $browser"
+# 	act "profile path  : $profilepath"
+
+# 	$app --user-data-dir="$profilepath" ${=browser_opts} $*
+# }
+
+function launch-mozilla() {
+	fn launch-mozilla
+	req=(browser profile)
 	ckreq || return $?
 
-	act "launching    : ${browser}.${profile}"
-	func "temporary ini: ${vendordir}/profiles.ini"
-	mkdir -p    "$vendordir"
-	cat <<EOF > "$vendordir"/profiles.ini
+	func "browser: $browser"
+	func "profile: $profile"
+
+	setup-profile
+
+	familypath="$HOME/.${vendor[$browser]}"
+
+	func "temporary ini: ${familypath}/profiles.ini"
+	mkdir -p    "$familypath"
+	cat <<EOF > "$familypath"/profiles.ini
 [General]
 StartWithLastProfile=0
 [Profile0]
-Name=${browser}
+Name=${profile}
 IsRelative=0
 Path=${profilepath}
 EOF
+	[[ $DEBUG = 1 ]] &&
+		cat "$familypath"/profiles.ini
+
 
 	# Inject preferences. We are lucky in browsers of the mozilla
 	# family the appended settings override preceeding ones and the
@@ -142,32 +159,14 @@ EOF
 	rm -f "$profilepath"/user.js
 	for i in ${prefs}; do
 		[[ "$i" = "" ]] || {
-			act "preference: $i"
+			act "config: $i"
 			cat "$i" >> "$profilepath"/user.js
 		}
 	done
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
-	### TODO: EXTENSION INJECTION IS NOT YET WELL IMPLEMENTED
-	# make sure all extensions are equipped by the profile
-	# mkdir -p "$profilepath"/extensions
-	# cp $basedir/titlebar/titlebar-v1@dyne.org.xpi \
-	#    "$profilepath"/extensions/titlebar-v1@dyne.org.xpi
-	# cp $basedir/passff/bin/passff.xpi "$2"/extensions/passff-v1@dyne.org.xpi
-
-	# [[ -r "$templatedir/extensions" ]] && {
-	# 	for x in ${(f)"$(find $templatedir/extensions -name '*.xpi')"}; do
-	# 		n=`basename $x`
-	# 		[[ -r "$templatedir"/extensions/"$n" ]] || {
-	# 			act "$n: equipping missing extension"
-	# 			mkdir -p "$profilepath"/extensions/
-	# 			cp "$x"  "$profilepath"/extensions/
-	# 		}
-	# 	done
-	# }
-
-    (sleep 5; rm "$vendordir"/profiles.ini) &
+    # (sleep 5; rm "$familypath"/profiles.ini) &
 
 	option.is_set -e && {
 		cmd=$(option.value -e)
@@ -422,9 +421,9 @@ case $subcommand in
 		cat <<EOF
 browser="$browser"
 profile="$profile"
-browsertype="$browsertype"
+family="$browsertype"
 profilepath="~/.tinfoil/profiles/$browser.$profile"
-vendorpath="~/.${vendor[$browser]}"
+familypath="~/.${vendor[$browser]}"
 cachepath="~/.cache/${vendor[$browser]}"
 EOF
 		cmd=$(executable_find $browser)
@@ -441,7 +440,16 @@ EOF
 			for i in ${(f)firejail_profiles}; do
 				[[ $i =~ ^include ]] &&
 cat <<EOF
-firejail_profiles+=(${i[(w)2]})
+firejail_templates+=(${i[(w)2]})
+EOF
+			done
+		}
+		[[ "$prefs" = "" ]] || {
+			# list the loaded templates
+			for i in ${(f)prefs}; do
+				[[ "$i" = "" ]] ||
+					cat <<EOF
+userjs_templates+=(${i})
 EOF
 			done
 		}
@@ -462,14 +470,8 @@ EOF
 			get_browsertype $browser
 		fi
 
-		prefs_find || warning "no preferences found"
+		prefs_find || act "no preference found"
 		
-
-		if template_find; then
-			act "$templatedir"
-		else
-			warning "no template found in $basedir $homedir $confdir"
-		fi
 
 		launch-$browsertype
 		return $?

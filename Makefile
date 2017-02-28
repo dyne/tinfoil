@@ -1,3 +1,4 @@
+
 PREFIX ?= /usr/local
 
 # escape slashes in path to be used by sed

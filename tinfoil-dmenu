@@ -26,8 +26,7 @@
 
 # }}} - License
 
-tinfoil_cmd=tinfoil
-
+cmd=${1:-tinfoil}
 normfg="#939393"
 normbg="#2D3743"
 selbg="#203020"
@@ -67,4 +66,9 @@ sel=$(print ${profiles} \
 		-sf $selfg \
 		-l $heightfit
 )
-tinfoil ${=sel}
+
+browser=${sel[(w)1]}
+profile=${sel[(w)2]}
+
+# eval `tinfoil conf $browser $profile`
+$cmd $browser $profile

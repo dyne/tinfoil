@@ -1,5 +1,5 @@
 #!/usr/bin/env zsh
-#
+
 # Tinfoil
 #
 # A tool to manage multiple profiles for web browsers
@@ -36,25 +36,27 @@ eval `tinfoil conf $1 $2`
 # browser="$browser"
 # profile="$profile"
 # profilepath="$HOME/.tinfoil/profiles/$browser.$profile"
-# vendorpath="$HOME/.${vendor[$browser]}"
+# familypath="$HOME/.${vendor[$browser]}"
 # cachepath="$HOME/.cache/${vendor[$browser]}"
 # browser_executable="$cmd"
 
 # generate the firejail profile
 tmp=$(mktemp)
 cat <<EOF >> $tmp
-whitelist $vendorpath
+whitelist $familypath
 whitelist $profilepath
 whitelist $cachepath
 EOF
 
 # user configurations and installed profiles
-for i in $firejail_profiles; do
+for i in $firejail_templates; do
 	cat <<EOF >> $tmp
 include $i
 
 EOF
 done
+
+[[ $DEBUG = 1 ]] && cat $tmp
 
 firejail --profile=$tmp tinfoil -e $browser_executable $browser $profile
 
