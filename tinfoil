@@ -166,7 +166,7 @@ EOF
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
-    # (sleep 5; rm "$familypath"/profiles.ini) &
+    (sleep 5; rm "$familypath"/profiles.ini) &
 
 	option.is_set -e && {
 		cmd=$(option.value -e)
