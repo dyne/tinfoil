@@ -27,13 +27,7 @@
 # }}} - License
 
 cmd=${1:-tinfoil}
-normfg="#939393"
-normbg="#2D3743"
-selbg="#203020"
-selfg="#ffffff"
 maxheight=10
-hostname=`hostname`
-font="Inconsolata"
 
 
 typeset -aU browsers
@@ -58,14 +52,7 @@ else
 	heightfit=$height
 fi
 
-sel=$(print ${profiles} \
-	| dmenu -b -i \
-		-nb $normbg \
-		-nf $normfg \
-		-sb $selbg \
-		-sf $selfg \
-		-l $heightfit
-)
+sel=$(print ${profiles} | dmenu -b -i -l $heightfit)
 
 browser=${sel[(w)1]}
 profile=${sel[(w)2]}
