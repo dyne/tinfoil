@@ -166,16 +166,18 @@ EOF
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
+	browser_is_running "${browser}" || browser_opts+=(-no-remote)
+
     (sleep 5; rm "$familypath"/profiles.ini) &
 
 	option.is_set -e && {
 		cmd=$(option.value -e)
 		act "executable: $cmd"
-		$cmd
+		$cmd ${browser_opts}
 		return $?
 	}
 
-	$browser
+	$browser ${browser_opts}
 	return $?
 
 }
@@ -189,21 +191,19 @@ function help_usage() {
 	act "Usage: tinfoil browser profile_name"
 }
 
-
-## TODO: fix this using pidof and locking inside dirs
+# TODO: check if running from the locks in profile dirs
 function browser_is_running() {
 	fn browser_is_running
-	req=(browser)
+	local arg="$1"
+	req=(arg)
 	ckreq || return $?
 
-	local brgrep="[${browser[1]}]$(print $browser | cut -c2-)"
-	func "checking ps ax for '$brgrep'"
-
-	pgrep $browser
-	[[ $? = 0 ]] && {
-		act "$browser found already running, using -no-remote"
-		browser_opts+=(-no-remote)		
-	}
+	local res
+	func "pgrep: $arg"
+	pgrep "$arg" > /dev/null
+	res=$?
+	[[ $res = 0 ]] && act "$arg is already running"
+	return $res
 }
 
 # }}}
