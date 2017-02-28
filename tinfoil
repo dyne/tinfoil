@@ -166,7 +166,7 @@ EOF
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
-	browser_is_running "${browser}" || browser_opts+=(-no-remote)
+	browser_is_running "${browser}" && browser_opts+=(-no-remote)
 
     (sleep 5; rm "$familypath"/profiles.ini) &
 
