@@ -51,11 +51,14 @@ arrs+=(browser_opts prefs)
 
 source $basedir/zuper/zuper.init
 
+# the vendor() map is used to get $familypath
+# familypath="$HOME/.${vendor[$browser]}"
 vendor=(firefox     "mozilla/firefox"
 		firefox-esr "mozilla/firefox"
 		iceweasel   "mozilla/firefox"
 		icecat      "mozilla/icecat"
-		palemoon    "moonchild productions/pale moon")
+		palemoon    "moonchild productions/pale moon"
+	    chromium    ".config/chromium")
 
 here=$(pwd)
 
@@ -93,7 +96,7 @@ function setup-profile() {
 		else
 			mkdir -p "$profilepath"
 		fi
-
+		[[ "$browsertype" = "chrome" ]] && browser_opts+=(--incognito)
 	else
 
 		profilepath="${profiledir}/${browser}.${profile}"
@@ -115,17 +118,27 @@ function setup-profile() {
 	return 0
 }
 
-# function launch-chrome() {
-# 	fn launch-chrome $*
-# 	req=(browser profile)
-# 	freq=($profilepath)
-# 	ckreq || return $?
+function launch-chrome() {
+	fn launch-chrome $*
+	req=(browser profile)
+	freq=($profilepath)
+	ckreq || return $?
 
-# 	act "launching     : $browser"
-# 	act "profile path  : $profilepath"
+	func "browser: $browser"
+	func "profile: $profile"
 
-# 	$app --user-data-dir="$profilepath" ${=browser_opts} $*
-# }
+	setup-profile
+
+	option.is_set -e && {
+		cmd=$(option.value -e)
+		act "executable: $cmd"
+		$cmd --user-data-dir="$profilepath" ${browser_opts}
+		return $?
+	}
+
+	$browser --user-data-dir="$profilepath" ${browser_opts}
+	return $?
+}
 
 function launch-mozilla() {
 	fn launch-mozilla
@@ -166,7 +179,7 @@ EOF
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
-	browser_is_running "${browser}" && browser_opts+=(-no-remote)
+	browser_is_running "${browser}" || browser_opts+=(-no-remote)
 
     (sleep 5; rm "$familypath"/profiles.ini) &
 
