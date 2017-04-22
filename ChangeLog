@@ -1,0 +1,18 @@
+# Tinfoil ChangeLog
+
+## 0.4
+
+Added support for Chrome family browsers.
+
+## 0.3
+### 28 Feb 2017
+
+Fixes to anonymous profile and Firefox handling. Adopted Zuper
+extensions and linted using shellcheck. Firejail support. Dmenu
+support. Phased out mandatory use of templates.
+
+## 0.2
+### 26 Feb 2017
+
+First public release with basic functionality for Firefox family
+browsers.

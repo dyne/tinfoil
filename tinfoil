@@ -401,7 +401,7 @@ include $found"
 
 # }}}
 
-notice "Tinfoil v0.3"
+notice "Tinfoil v0.4"
 
 # {{{ Commands parsed
 option_main=(h -help=h v -version=v -tmp: t: -type=t e: -exec=e)

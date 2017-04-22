@@ -19,7 +19,7 @@ To install tinfoil on your GNU+Linux system, launch `make install` as root from 
  make install PREFIX=/usr
 ```
 
-Tinfoil can make good use of some extra tools when installed, for instance `firejail` for process isolation and `dmenu` for easier graphical interaction.
+Tinfoil can make good use of some extra tools when installed, for instance `firejail` for process isolation and `dmenu` (from suckless-tools) for easier graphical interaction.
 
 Web browsers must be installed separately. At the moment tinfoil supports the following browsers: `firefox`, `iceweasel`, `icecat` and `palemoon`.
 
