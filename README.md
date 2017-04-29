@@ -21,7 +21,7 @@ To install tinfoil on your GNU+Linux system, launch `make install` as root from 
 
 Tinfoil can make good use of some extra tools when installed, for instance `firejail` for process isolation and `dmenu` (from suckless-tools) for easier graphical interaction.
 
-Web browsers must be installed separately. At the moment tinfoil supports the following browsers: `firefox`, `iceweasel`, `icecat` and `palemoon`.
+Web browsers must be installed separately. At the moment tinfoil supports the following browsers: `firefox`, `chromium`, `iceweasel`, `icecat` and `palemoon`.
 
 ## How does it work?
 
@@ -89,9 +89,10 @@ userjs_templates+=(array_of_paths_to_userjs_mozilla_configurations)
 
 ## Stage of development
 
-Tinfoil is work in progress! if you are interested in giving a hand, tinfoil's developers can be contacted using the issues on GitHub or over IRC on https://irc.dyne.org channel **#dyne** (or direct port 9999 SSL)
 
 Tinfoil is the browser wrapper of choice for the heads GNU+Linux distribution: https://heads.dyne.org
+
+Tinfoil is work in progress, developers can be contacted using the issues on GitHub or over IRC on https://irc.dyne.org channel **#dyne** (or direct port 9999 SSL)
 
 Contributions to Tinfoil are welcome, especially to add more supported browsers, integration with desktop workflows and even graphical interfaces. The `lint` Makefile target is provided to test the consistency of code and correct common mistakes: please run the check using `make lint` to make sure your contribution conforms to the coding style adopted in Tinfoil.
 

@@ -21,7 +21,9 @@ install:
 	@sed "s/^basedir=./basedir=$(ESCPREFIX)\/share\/tinfoil/g" \
 		 tinfoil > $(PREFIX)/bin/tinfoil
 	@chmod +x      $(PREFIX)/bin/tinfoil
+	@echo "Installing executable in ${PREFIX}/bin/tinfoil-firejail"
 	@install -m 0755 tinfoil-firejail $(PREFIX)/bin/tinfoil-firejail
+	@echo "Installing executable in ${PREFIX}/bin/tinfoil-dmenu"
 	@install -m 0755 tinfoil-dmenu    $(PREFIX)/bin/tinfoil-dmenu
 	@echo "Default configuration in /etc/tinfoil"
 	@mkdir -p /etc/tinfoil
