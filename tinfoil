@@ -58,7 +58,7 @@ vendor=(firefox     "mozilla/firefox"
 		iceweasel   "mozilla/firefox"
 		icecat      "mozilla/icecat"
 		palemoon    "moonchild productions/pale moon"
-	    chromium    ".config/chromium")
+	    chromium    "config/chromium")
 
 here=$(pwd)
 
@@ -264,7 +264,7 @@ function executable_find() {
 			continue
 		}
 
-		# check if a script, if yes take first exec
+		# check if a script
 		[[ $exetype =~ shell ]] && {
 			func "shell script detected"
 			for i in ${(f)"$(cat $exepath)"}; do
@@ -272,7 +272,16 @@ function executable_find() {
 				# bail out if nothing found in script
 				found=-1
 				[[ $i =~ ^exec ]] && {
+					func "seems a firefox script wrapper (has ^exec line)"
 					step="${i[(w)2]}"
+					func "exec: $step"
+					found=0
+					abs=0
+					break
+				}
+				[[ $i =~ LIBDIR ]] && {
+					func "seems a chromium script wrapper (has ^LIBDIR line)"
+					step="${i[(ws:=:)2]}"/${browser}
 					func "exec: $step"
 					found=0
 					abs=0
