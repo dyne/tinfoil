@@ -48,6 +48,24 @@ whitelist $profilepath
 whitelist $cachepath
 EOF
 
+# add audio and video devices
+for i in ${(f)"$(find /dev/snd -type c)"}; do
+	print "whitelist $i" >> $tmp
+done
+for i in ${(f)"$(find /dev -name 'video*' -type c)"}; do
+	print "whitelist $i" >> $tmp
+done
+for i in ${(f)"$(find /dev -name 'audio*' -type c)"}; do
+	print "whitelist $i" >> $tmp
+done
+
+cat <<EOF >> $tmp
+whitelist /dev/drm
+whitelist /dev/random
+whitelist /dev/urandom
+whitelist /dev/null
+EOF
+
 # user configurations and installed profiles
 for i in $firejail_templates; do
 	cat <<EOF >> $tmp
