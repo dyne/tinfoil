@@ -44,6 +44,7 @@ source $basedir/zuper/zuper
 vars+=(browser family profile)
 vars+=(profiledir homedir confdir basedir)
 vars+=(templatedir create_profile profilepath)
+vars+=(pidfile pid)
 vars+=(found here)
 vars+=(firejail_profile)
 maps+=(browsertype vendor profilename)
@@ -118,6 +119,32 @@ function setup-profile() {
 	return 0
 }
 
+# manages the lock and launches the desired browser
+function is-running() {
+	fn is-running $*
+	req=(browser profile)
+	ckreq || return $?
+
+	case $browsertype in
+		chrome)
+			[[ -h $profilepath/SingletonLock ]] && {
+				act "${browser}.${profile}: found already running"
+				return 0 }
+			;;
+		mozilla)
+			[[ -h $profilepath/lock ]] && {
+				act "${browser}.${profile}: found already running"
+				return 0 }
+			;;
+		*)
+			warning "${browsertype}: cannot detect if browser is running"
+			;;
+	esac
+
+	return 1
+
+}
+
 function launch-chrome() {
 	fn launch-chrome $*
 	req=(browser profile)
@@ -132,12 +159,13 @@ function launch-chrome() {
 	option.is_set -e && {
 		cmd=$(option.value -e)
 		act "executable: $cmd"
-		$cmd --user-data-dir="$profilepath" ${browser_opts}
-		return $?
+		browser="$cmd"
 	}
 
 	$browser --user-data-dir="$profilepath" ${browser_opts}
-	return $?
+	pid="$$"
+	print "$pid" > $pidfile
+	return 0
 }
 
 function launch-mozilla() {
@@ -179,19 +207,20 @@ EOF
 	# TODO: interesting to add preference locking functionality
     # see: http://kb.mozillazine.org/Locking_preferences
 
-	browser_is_running "${browser}" || browser_opts+=(-no-remote)
+	is-running || browser_opts+=(-no-remote)
 
     (sleep 5; rm "$familypath"/profiles.ini) &
 
 	option.is_set -e && {
 		cmd=$(option.value -e)
 		act "executable: $cmd"
-		$cmd ${browser_opts}
-		return $?
+		browser="$cmd"
 	}
 
 	$browser ${browser_opts}
-	return $?
+	pid="$$"
+	print "$pid" > $pidfile
+	return 0
 
 }
 
@@ -202,21 +231,6 @@ EOF
 function help_usage() {
 	fn help_usage
 	act "Usage: tinfoil browser profile_name"
-}
-
-# TODO: check if running from the locks in profile dirs
-function browser_is_running() {
-	fn browser_is_running
-	local arg="$1"
-	req=(arg)
-	ckreq || return $?
-
-	local res
-	func "pgrep: $arg"
-	pgrep "$arg" > /dev/null
-	res=$?
-	[[ $res = 0 ]] && act "$arg is already running"
-	return $res
 }
 
 # }}}
@@ -536,7 +550,6 @@ esac
 
 
 
-# browser_is_running $browser
 
 
 ## TODO: tor profile to detect tor on local or remote
