@@ -410,11 +410,12 @@ include $found"
 
 # }}}
 
-notice "Tinfoil v0.4"
+notice "Tinfoil v0.5"
 
 # {{{ Commands parsed
 option_main=(h -help=h v -version=v -tmp: t: -type=t e: -exec=e)
 option_subcommands[conf]=""
+option_subcommands[kill]=""
 option.parse $* || return 1
 func "subcommand: $subcommand"
 option.is_set '-h' && help_usage && return 0
@@ -475,6 +476,27 @@ userjs_templates+=(${i})
 EOF
 			done
 		}
+
+		return 0
+		;;
+
+	"kill")
+		browser="${option_params[1]}"
+		profile="${option_params[2]}"
+		act "kill $browser $profile"
+		ps=`ps xww | awk '
+/awk/     {next}
+/tinfoil-dmenu/ {next}
+/tinfoil-firejail/ {next}
+/'"${browser}.${profile}"'/ { print $0 }
+'`
+		[[ ${#ps} = 0 ]] && {
+			act "No browser found running"
+			return 1 }
+		for p in ${(f)ps}; do
+			func "kill (${p[(w)1]}): $p"
+			kill ${p[(w)1]} 1>/dev/null 2>/dev/null
+		done
 
 		return 0
 		;;
