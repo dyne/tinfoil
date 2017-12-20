@@ -218,7 +218,7 @@ function kill-process() {
 		local kk=${lastofsession[(w)1]}
 		func "kill:: $kk"
 		kill $kk
-		[[ $? = 0 ]] && act "killed $lastofsession"
+		[[ $? = 0 ]] && act "killed ${p[(w)3]} ${p[(w)4]}"
 	done
 
 	return 0
@@ -611,22 +611,6 @@ EOF
 		;;
 
 esac
-
-
-
-# # support symlinks to script with tinfoil-profilename
-# if [[ $0 =~ tinfoil- ]]; then
-# 	profile=$(basename $0)
-# 	profile=${profile[(ws:-:)2]}
-# fi
-
-# browser_opts=($*)
-
-
-
-
-
-## TODO: tor profile to detect tor on local or remote
 
 
 # }}}
