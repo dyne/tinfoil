@@ -77,6 +77,7 @@ function get_browsertype() {
 		   ;;
 	esac
 }
+
 # }}}
 
 # {{{ Launchers
@@ -375,7 +376,8 @@ function executable_find() {
 				[[ $i =~ LIBDIR ]] && {
 					func "seems a chromium script wrapper (has ^LIBDIR line)"
 					step="${i[(ws:=:)2]}"/${browser}
-					func "exec: $step"
+					step=${step/\$APPNAME/$browser}
+					func "exec: ${step}"
 					found=0
 					abs=0
 					break
