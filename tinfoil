@@ -242,7 +242,7 @@ function launch-chrome() {
 		browser="$cmd"
 	}
 
-	$browser --user-data-dir="$profilepath" ${browser_opts}
+	$browser --user-data-dir="$profilepath" ${browser_opts} ${option_params[2]}
 	pid="$$"
 	print "$pid" > $pidfile
 	return 0
@@ -297,7 +297,7 @@ EOF
 		browser="$cmd"
 	}
 
-	$browser ${browser_opts}
+	$browser ${browser_opts} ${option_params[2]}
 	pid="$$"
 	print "$pid" > $pidfile
 	return 0
@@ -603,6 +603,8 @@ EOF
 		else
 			get_browsertype $browser
 		fi
+		[[ "${option_params[2]}" = "" ]] ||
+			act "url to open: ${option_params[2]}"
 
 		prefs_find || act "no preference found"
 		
