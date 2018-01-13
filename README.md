@@ -89,16 +89,15 @@ userjs_templates+=(array_of_paths_to_userjs_mozilla_configurations)
 
 ## Stage of development
 
+Tinfoil is stable and used by its author Jaromil in conjunction to the i3 window manager and dmenu, and a few other people. If one understands what it does from this geeky documentation, it may turn to be very useful.
 
-Tinfoil is the browser wrapper of choice for the heads GNU+Linux distribution: https://heads.dyne.org
+Developers can be contacted using the issues on GitHub or over IRC on https://irc.dyne.org channel **#dyne** (or direct port 9999 SSL)
 
-Tinfoil is work in progress, developers can be contacted using the issues on GitHub or over IRC on https://irc.dyne.org channel **#dyne** (or direct port 9999 SSL)
-
-Contributions to Tinfoil are welcome, especially to add more supported browsers, integration with desktop workflows and even graphical interfaces. The `lint` Makefile target is provided to test the consistency of code and correct common mistakes: please run the check using `make lint` to make sure your contribution conforms to the coding style adopted in Tinfoil.
+Contributions to Tinfoil are welcome, especially to add more supported browsers, integration with desktop workflows and even graphical interfaces.
 
 ## Licensing
 
-Tinfoil is Copyright (C) 2017 by the Dyne.org Foundation
+Tinfoil is Copyright (C) 2017-2018 by the Dyne.org Foundation
 
 Tinfoil is designed, written and maintained by Denis Roio <jaromil@dyne.org>
 

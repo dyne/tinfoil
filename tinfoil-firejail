@@ -76,7 +76,7 @@ done
 
 [[ $DEBUG = 1 ]] && cat $tmp
 
-firejail --profile=$tmp tinfoil -e $browser_executable $browser $profile
+firejail --profile=$tmp tinfoil -e $browser_executable $browser $profile "$3"
 
 
 # option.is_set --debug-firejail && {
