@@ -6,7 +6,7 @@
 #
 # {{{ License
 #
-# Copyright (C) 2017 Dyne.org Foundation
+# Copyright (C) 2017-2018 Dyne.org Foundation
 #
 # Tinfoil is designed, written and maintained by Denis Roio <jaromil@dyne.org>
 #
@@ -42,29 +42,39 @@ eval `tinfoil conf $1 $2`
 
 # generate the firejail profile
 tmp=$(mktemp)
+
+# use stock firejail profiles except for palemoon
+# this solves recent problems with chromium
+# but still our own setup for palemoon works better
+[[ "$browser" = "palemoon" ]] ||
+	cat /etc/firejail/$browser.profile >> $tmp
+
 cat <<EOF >> $tmp
 whitelist $familypath
 whitelist $profilepath
 whitelist $cachepath
 EOF
 
-# add audio and video devices
-for i in ${(f)"$(find /dev/snd -type c)"}; do
-	print "whitelist $i" >> $tmp
-done
-for i in ${(f)"$(find /dev -name 'video*' -type c)"}; do
-	print "whitelist $i" >> $tmp
-done
-for i in ${(f)"$(find /dev -name 'audio*' -type c)"}; do
-	print "whitelist $i" >> $tmp
-done
+[[ "$browser" = "palemoon" ]] && {
 
-cat <<EOF >> $tmp
+	# add audio and video devices
+	for i in ${(f)"$(find /dev/snd -type c)"}; do
+		print "whitelist $i" >> $tmp
+	done
+	for i in ${(f)"$(find /dev -name 'video*' -type c)"}; do
+		print "whitelist $i" >> $tmp
+	done
+	for i in ${(f)"$(find /dev -name 'audio*' -type c)"}; do
+		print "whitelist $i" >> $tmp
+	done
+
+	cat <<EOF >> $tmp
 whitelist /dev/drm
 whitelist /dev/random
 whitelist /dev/urandom
 whitelist /dev/null
 EOF
+}
 
 # user configurations and installed profiles
 for i in $firejail_templates; do
@@ -74,20 +84,17 @@ include $i
 EOF
 done
 
-[[ $DEBUG = 1 ]] && cat $tmp
+# delete the firejail configuration after launch
+(sleep 5; rm -f $tmp) &
 
-firejail --profile=$tmp tinfoil -e $browser_executable $browser $profile "$3"
-
-
-# option.is_set --debug-firejail && {
-#     warning "Firejail debugging mode"
-#     act "CMD: firejail --profile=$ztmpfile $cmd ${=browser_opts}"
-#     act "Firejail rules:"
-#     cat $ztmpfile
-#     act ""
-#     firejail --profile=$ztmpfile $cmd ${=browser_opts}
-#     return 0
-# }
+if [[ $DEBUG = 1 ]]; then
+	cat $tmp
+	firejail --debug --debug-whitelists --profile=$tmp tinfoil \
+			 -e $browser_executable $browser $profile "$3"
+else
+	firejail --profile=$tmp tinfoil \
+			 -e $browser_executable $browser $profile "$3"
+fi
 
 # option.is_set --audit-firejail && {
 #     warning "Firejail audit mode"
