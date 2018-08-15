@@ -13,7 +13,9 @@
 
 // ~/.tinfoil/templates/icecat-prefs.js   (browser specific)
 
-
+// trr prefs for DNS traffic capture
+// see: https://gist.github.com/bagder/5e29101079e9ac78920ba2fc718aceec
+user_pref("network.trr.mode", 5);
 
 user_pref("app.update.lastUpdateTime.browser-cleanup-thumbnails", 0);
 user_pref("browser.bookmarks.restore_default_bookmarks", false);
