@@ -13,6 +13,9 @@
 
 // ~/.tinfoil/templates/icecat-prefs.js   (browser specific)
 
+// for telegram's tg:// links 
+user_pref("network.protocol-handler.expose.tg", false);
+
 // trr prefs for DNS traffic capture
 // see: https://gist.github.com/bagder/5e29101079e9ac78920ba2fc718aceec
 user_pref("network.trr.mode", 5);
