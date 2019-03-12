@@ -26,7 +26,7 @@
 
 # }}} - License
 
-cmd=${1:-tinfoil}
+cmd=(${*:-tinfoil})
 maxheight=10
 
 
