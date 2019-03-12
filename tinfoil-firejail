@@ -53,7 +53,9 @@ cat <<EOF >> $tmp
 whitelist $familypath
 whitelist $profilepath
 whitelist $cachepath
-whitelist `dirname $browser_executable`
+whitelist /opt/firefox
+whitelist /opt/palemoon
+whitelist /opt/chrome
 EOF
 
 [[ "$browser" = "palemoon" ]] && {
