@@ -243,8 +243,6 @@ function launch-chrome() {
 	}
 
 	$browser --user-data-dir="$profilepath" ${browser_opts} ${option_params[2]}
-	pid="$$"
-	print "$pid" > $pidfile
 	return 0
 }
 
@@ -297,11 +295,8 @@ EOF
 		browser="$cmd"
 	}
 
-	$browser ${browser_opts} ${option_params[2]}
-	pid="$$"
-	print "$pid" > $pidfile
+	$browser ${browser_opts} ${option_params[2]} &
 	return 0
-
 }
 
 # }}}
