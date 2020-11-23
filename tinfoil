@@ -6,7 +6,7 @@
 #
 # {{{ License
 #
-# Copyright (C) 2017-2018 Dyne.org Foundation
+# Copyright (C) 2017-2020 Dyne.org Foundation
 #
 # Tinfoil is designed, written and maintained by Denis Roio <jaromil@dyne.org>
 #
@@ -21,8 +21,7 @@
 # to the GNU Public License for more details.
 #
 # You should have received a copy of the GNU Public License along with
-# this source code; if not, write to: Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
+# this source code; if not, , see <https://www.gnu.org/licenses/>.
 
 # }}} - License
 
@@ -512,6 +511,40 @@ include $found"
 
 # }}}
 
+# {{{ Utilities
+
+function clean_caches() {
+	fn clean_caches
+	freq=($profiledir)
+	ckreq || return $?
+	notice "Cleaning cache in tinfoil profiles"
+	func "find $profiledir -type d -name 'CacheStorage'"
+	local caches
+	caches=`find $profiledir -type d -name 'CacheStorage'`
+	for i in ${(f)caches}; do
+		func "DEL $i/*"
+		rm -rf $i/*
+	done
+	caches=`find $profiledir -type d -name 'Cache'`
+	for i in ${(f)caches}; do
+		func "DEL $i/*"
+		rm -rf $i/*
+	done
+	caches=`find $profiledir -type d -name 'Code Cache'`
+	for i in ${(f)caches}; do
+		func "DEL $i/*"
+		rm -rf $i/*
+	done
+	local caches=`find $profiledir -type d -name 'cache2'`
+	for i in ${(f)caches}; do
+		func "DEL $i/*"
+		rm -rf $i/*
+	done
+	return 0
+}
+
+# }}}
+
 notice "Tinfoil v0.5"
 
 # {{{ Commands parsed
@@ -519,6 +552,7 @@ option_main=(h -help=h v -version=v -tmp: t: -type=t e: -exec=e)
 option_subcommands[conf]=""
 option_subcommands[kill]=""
 option_subcommands[list]=""
+option_subcommands[clean]=""
 
 option.parse $* || return 1
 func "subcommand: $subcommand"
@@ -595,6 +629,11 @@ EOF
 		browser="${option_params[1]}"
 		profile="${option_params[2]}"
 		list-process
+		return $?
+		;;
+
+	"clean")
+		clean_caches
 		return $?
 		;;
 
