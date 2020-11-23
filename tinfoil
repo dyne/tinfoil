@@ -49,6 +49,7 @@ vars+=(found here)
 vars+=(firejail_profile)
 maps+=(browsertype vendor profilename)
 arrs+=(browser_opts prefs)
+vars+=(use_wmctrl)
 
 source $basedir/zuper/zuper.init
 
@@ -62,6 +63,10 @@ vendor=(firefox     "mozilla/firefox"
 	    chromium    "config/chromium")
 
 here=$(pwd)
+
+# detect if we should use wmctrl
+use_wmctrl=0
+command -v wmctrl > /dev/null && use_wmctrl=1
 
 function get_browsertype() {
 	fn get_browsertype $*
@@ -610,9 +615,17 @@ EOF
 
 		prefs_find || act "no preference found"
 		
+		launch-$browsertype &
+		local res=$?
+		sleep 1
 
-		launch-$browsertype
-		return $?
+		[[ $use_wmctrl == 1 && "$FIREJAIL" == "" ]] && {
+			# parse last window open using wmctrl and rename it
+			local lw=$(wmctrl -l | awk '/^0x/ { print $1; exit }')
+			act "wmctrl ${lw} -T ${profile}.${browsertype}"
+			wmctrl -i -r ${lw} -T ${profile}.${browsertype}
+		}
+		return $res
 
 		;;
 

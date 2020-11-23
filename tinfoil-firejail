@@ -92,12 +92,21 @@ done
 
 if [[ $DEBUG = 1 ]]; then
 	cat $tmp
-	firejail --debug --debug-whitelists --profile=$tmp tinfoil \
+	FIREJAIL=1 firejail --debug --debug-whitelists --profile=$tmp tinfoil \
 			 -e $browser_executable $browser $profile "$3"
 else
-	firejail --profile=$tmp tinfoil \
-			 -e $browser_executable $browser $profile "$3"
+	FIREJAIL=1 firejail --profile=$tmp tinfoil \
+			 -e $browser_executable $browser $profile "$3" &
 fi
+
+sleep 1
+
+command -v wmctrl > /dev/null && {
+	# parse last window open using wmctrl and rename it
+	local lw=$(wmctrl -l | awk '/^0x/ { print $1; exit }')
+	# echo "wmctrl -i -r ${lw} -T ${profile}.${browser}"
+	wmctrl -i -r ${lw} -T ${profile}.${browser}
+}
 
 # option.is_set --audit-firejail && {
 #     warning "Firejail audit mode"
