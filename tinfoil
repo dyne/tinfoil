@@ -246,7 +246,14 @@ function launch-chrome() {
 		browser="$cmd"
 	}
 
-	$browser --user-data-dir="$profilepath" ${browser_opts} ${option_params[2]}
+	# prefix with apulse in case installed (to overcome the need for
+	# the shit of pulseaudio)
+	if command -v apulse > /dev/null; then
+		act "bypassing pulsaudio with apulse - alsa rox \o/" 
+		apulse $browser --user-data-dir="$profilepath" ${browser_opts} ${option_params[2]}
+	else
+		$browser --user-data-dir="$profilepath" ${browser_opts} ${option_params[2]}
+	fi
 	return 0
 }
 
